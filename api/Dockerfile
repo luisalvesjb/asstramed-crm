@@ -24,6 +24,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src ./src
 COPY --from=builder /app/assets ./assets
 EXPOSE 3333
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
