@@ -14,7 +14,8 @@
     "prisma:seed:safe": "prisma db seed",
     "prisma:seed:dry-run": "prisma db seed -- --dry-run",
     "prisma:seed:demo": "prisma db seed -- --with-demo",
-    "prisma:seed:demo:dry-run": "prisma db seed -- --with-demo --dry-run"
+    "prisma:seed:demo:dry-run": "prisma db seed -- --with-demo --dry-run",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
