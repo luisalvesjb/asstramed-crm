@@ -1,12 +1,38 @@
 import path from "path";
 import express from "express";
 import cors from "cors";
+import type { CorsOptions } from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { routes } from "./routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
+import { env } from "./config/env";
 
 export const app = express();
+
+const allowedOrigins = (env.CORS_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Origin nao permitida pelo CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type"]
+};
 
 app.use(
   helmet({
@@ -15,7 +41,8 @@ app.use(
     }
   })
 );
-app.use(cors());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
 app.use(
