@@ -1,0 +1,338 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActivityStatus {
+  PENDENTE
+  EM_EXECUCAO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum FinancialEntryStatus {
+  PENDENTE
+  PAGO
+  VENCIDO
+  CANCELADO
+}
+
+enum FinancialRecurrenceCycle {
+  NONE
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+}
+
+model User {
+  id                 String                  @id @default(uuid())
+  name               String
+  email              String                  @unique
+  passwordHash       String
+  avatarPath         String?
+  avatarMimeType     String?
+  profileId          String
+  profile            Profile                 @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  isAdmin            Boolean                 @default(false)
+  isActive           Boolean                 @default(true)
+  lastAccessAt       DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  permissions        UserPermission[]
+  createdActivities  Activity[]              @relation("ActivityCreatedBy")
+  assignedActivities Activity[]              @relation("ActivityAssignedTo")
+  uploadedDocuments  Document[]              @relation("DocumentUploadedBy")
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]              @relation("AuditActor")
+  statusChanges      ActivityStatusHistory[] @relation("ActivityStatusChangedBy")
+  financialEntries   FinancialEntry[]        @relation("FinancialEntryCreatedBy")
+}
+
+model Profile {
+  id          String              @id @default(uuid())
+  key         String              @unique
+  name        String
+  description String?
+  isAdmin     Boolean             @default(false)
+  isSystem    Boolean             @default(false)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  users       User[]
+  permissions ProfilePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  users       UserPermission[]
+  profiles    ProfilePermission[]
+}
+
+model UserPermission {
+  userId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+}
+
+model ProfilePermission {
+  profileId    String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  profile      Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, permissionId])
+}
+
+model Company {
+  id                  String           @id @default(uuid())
+  name                String
+  legalName           String?
+  city                String?
+  state               String?
+  status              String           @default("ATIVA")
+  nextCycleDate       DateTime?
+  personalDocument    String?
+  personalEmail       String?
+  personalPhone       String?
+  personalResponsible String?
+  personalNotes       String?
+  logoPath            String?
+  logoMimeType        String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  contacts            CompanyContact[]
+  address             CompanyAddress?
+  documents           Document[]
+  contracts           Contract[]
+  activities          Activity[]
+}
+
+model CompanyContact {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  role      String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model CompanyAddress {
+  id          String   @id @default(uuid())
+  companyId   String   @unique
+  street      String?
+  number      String?
+  complement  String?
+  district    String?
+  city        String?
+  state       String?
+  zipCode     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id           String    @id @default(uuid())
+  companyId    String
+  name         String
+  title        String
+  description  String?
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  uploadedById String
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  contracts    ContractDocument[]
+}
+
+model Contract {
+  id           String             @id @default(uuid())
+  companyId    String
+  value        Decimal?
+  billingCycle String?
+  dueDay       Int?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents    ContractDocument[]
+}
+
+model ContractDocument {
+  contractId String
+  documentId String
+  createdAt  DateTime @default(now())
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@id([contractId, documentId])
+}
+
+model FinancialCategory {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  entries     FinancialEntry[]
+
+  @@unique([name])
+}
+
+model CostCenter {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  entries     FinancialEntry[]
+
+  @@unique([name])
+}
+
+model PaymentMethod {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  entries     FinancialEntry[]
+
+  @@unique([name])
+}
+
+model FinancialEntry {
+  id                 String                   @id @default(uuid())
+  title              String
+  description        String?
+  amount             Decimal
+  status             FinancialEntryStatus     @default(PENDENTE)
+  dueDate            DateTime
+  paymentDate        DateTime?
+  launchDate         DateTime                 @default(now())
+  isFixed            Boolean                  @default(false)
+  recurrenceCycle    FinancialRecurrenceCycle @default(NONE)
+  nextRecurrenceDate DateTime?
+  recurrenceEndDate  DateTime?
+  parentEntryId      String?
+  categoryId         String
+  costCenterId       String?
+  paymentMethodId    String?
+  createdById        String
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  deletedAt          DateTime?
+  parentEntry        FinancialEntry?          @relation("FinancialEntryRecurrence", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  generatedEntries   FinancialEntry[]         @relation("FinancialEntryRecurrence")
+  category           FinancialCategory        @relation(fields: [categoryId], references: [id])
+  costCenter         CostCenter?              @relation(fields: [costCenterId], references: [id])
+  paymentMethod      PaymentMethod?           @relation(fields: [paymentMethodId], references: [id])
+  createdBy          User                     @relation("FinancialEntryCreatedBy", fields: [createdById], references: [id])
+
+  @@index([dueDate, status])
+  @@index([paymentDate, status])
+  @@index([categoryId])
+  @@index([costCenterId])
+  @@index([paymentMethodId])
+  @@index([isFixed, nextRecurrenceDate])
+}
+
+model Activity {
+  id           String                 @id @default(uuid())
+  companyId    String
+  orderExec    Int
+  title        String
+  description  String?
+  status       ActivityStatus         @default(PENDENTE)
+  assignedToId String
+  createdById  String
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  company      Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedTo   User                   @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
+  createdBy    User                   @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+  tags         ActivityTag[]
+  history      ActivityStatusHistory[]
+
+  @@index([companyId, status, createdAt])
+}
+
+model Tag {
+  id         String        @id @default(uuid())
+  key        String        @unique
+  label      String
+  color      String?
+  createdAt  DateTime      @default(now())
+  activities ActivityTag[]
+}
+
+model ActivityTag {
+  activityId String
+  tagId      String
+  createdAt  DateTime @default(now())
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, tagId])
+}
+
+model ActivityStatusHistory {
+  id          String         @id @default(uuid())
+  activityId  String
+  fromStatus  ActivityStatus?
+  toStatus    ActivityStatus
+  changedById String
+  changedAt   DateTime       @default(now())
+  activity    Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  changedBy   User           @relation("ActivityStatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([activityId, changedAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  payload   Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([action, entity, createdAt])
+}
