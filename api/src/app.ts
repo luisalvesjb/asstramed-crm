@@ -12,8 +12,45 @@ export const app = express();
 
 const allowedOrigins = (env.CORS_ORIGINS ?? "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/^['"]|['"]$/g, "").replace(/\/+$/, ""))
   .filter(Boolean);
+
+const allowAllOrigins = allowedOrigins.length === 0 || allowedOrigins.includes("*");
+
+function normalizeOrigin(origin: string): string {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin.trim().replace(/\/+$/, "");
+  }
+}
+
+function matchOrigin(origin: string): boolean {
+  if (allowAllOrigins) {
+    return true;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return allowedOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === normalizedOrigin) {
+      return true;
+    }
+
+    if (!allowedOrigin.startsWith("*.")) {
+      return false;
+    }
+
+    const suffix = allowedOrigin.slice(1); // ".asstramed.com.br"
+
+    try {
+      const { hostname } = new URL(normalizedOrigin);
+      return hostname.endsWith(suffix);
+    } catch {
+      return false;
+    }
+  });
+}
 
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
@@ -22,7 +59,7 @@ const corsOptions: CorsOptions = {
       return;
     }
 
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    if (matchOrigin(origin)) {
       callback(null, true);
       return;
     }
