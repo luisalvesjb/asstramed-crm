@@ -73,13 +73,16 @@ Para nao perder uploads em novos deploys:
 - Porta interna: `80`
 - Healthcheck path: `/health`
 
-### Build ARG da WEB
+### Build ARG e ENV da WEB
 
-Defina build arg para o Vite:
+Para same-origin (sem CORS no browser), use:
 
 ```env
-VITE_API_URL=https://URL_PUBLICA_DA_API/api
+VITE_API_URL=/api
+API_PROXY_TARGET=https://URL_PUBLICA_DA_API
 ```
+
+`API_PROXY_TARGET` e usado pelo Nginx do web para fazer proxy de `/api` e `/assets` para a API.
 
 ## 5) Auto deploy por paths monitoradas
 
@@ -111,4 +114,4 @@ npm run prisma:seed:safe
 ## 8) Observacoes importantes
 
 - Em producao, use sempre `prisma migrate deploy` (nao `prisma migrate dev`).
-- Quando trocar para dominio oficial, atualize `VITE_API_URL` e redeploy da WEB.
+- Quando trocar o dominio da API, atualize `API_PROXY_TARGET` no app WEB e redeploy.

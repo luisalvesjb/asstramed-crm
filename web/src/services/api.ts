@@ -7,7 +7,7 @@ import {
   setRefreshToken
 } from "../utils/auth-storage";
 
-export const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3333/api";
+export const apiBaseUrl = import.meta.env.VITE_API_URL ?? "/api";
 
 export const api = axios.create({
   baseURL: apiBaseUrl
