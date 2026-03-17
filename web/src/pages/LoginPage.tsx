@@ -31,20 +31,20 @@ export function LoginPage() {
       <div className="login-card">
         <h1>Asstramed CRM</h1>
         <p>Acesso ao sistema</p>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off">
           <AppInput
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="E-mail"
-            autoComplete="username"
+            autoComplete="off"
           />
           <AppInput
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Senha"
-            autoComplete="current-password"
+            autoComplete="off"
           />
           {error && <span className="error-text">{error}</span>}
           <AppButton type="primary" htmlType="submit" loading={loading} block>

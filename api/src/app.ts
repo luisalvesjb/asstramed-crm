@@ -1,7 +1,5 @@
 import path from "path";
 import express from "express";
-import cors from "cors";
-import type { CorsOptions } from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { routes } from "./routes";
@@ -25,14 +23,14 @@ function normalizeOrigin(origin: string): string {
   }
 }
 
-function matchOrigin(origin: string): boolean {
-  if (allowAllOrigins) {
-    return true;
+function resolveCorsOrigin(originHeader?: string): string {
+  if (!originHeader || allowAllOrigins) {
+    return "*";
   }
 
-  const normalizedOrigin = normalizeOrigin(origin);
+  const normalizedOrigin = normalizeOrigin(originHeader);
 
-  return allowedOrigins.some((allowedOrigin) => {
+  const isAllowed = allowedOrigins.some((allowedOrigin) => {
     if (allowedOrigin === normalizedOrigin) {
       return true;
     }
@@ -50,26 +48,9 @@ function matchOrigin(origin: string): boolean {
       return false;
     }
   });
+
+  return isAllowed ? normalizedOrigin : "";
 }
-
-const corsOptions: CorsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    if (matchOrigin(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error("Origin nao permitida pelo CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type"]
-};
 
 app.use(
   helmet({
@@ -78,8 +59,26 @@ app.use(
     }
   })
 );
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.use((req, res, next) => {
+  const originHeader = req.headers.origin;
+  const origin = typeof originHeader === "string" ? originHeader : undefined;
+  const resolvedOrigin = resolveCorsOrigin(origin);
+
+  if (resolvedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", resolvedOrigin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept,Origin,X-Requested-With");
+    res.setHeader("Access-Control-Allow-Credentials", allowAllOrigins ? "false" : "true");
+  }
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send();
+    return;
+  }
+
+  next();
+});
 app.use(express.json());
 app.use(morgan("dev"));
 app.use(
