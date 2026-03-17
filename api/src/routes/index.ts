@@ -13,6 +13,7 @@ import { profilesRoutes } from "../modules/profiles";
 import { financialSettingsRoutes } from "../modules/financial-settings";
 import { financialEntriesRoutes } from "../modules/financial-entries";
 import { financialReportsRoutes } from "../modules/financial-reports";
+import { messagesRoutes } from "../modules/messages";
 
 export const routes = Router();
 
@@ -34,3 +35,4 @@ routes.use("/profiles", profilesRoutes);
 routes.use("/financial/settings", financialSettingsRoutes);
 routes.use("/financial/entries", financialEntriesRoutes);
 routes.use("/financial/reports", financialReportsRoutes);
+routes.use("/messages", messagesRoutes);

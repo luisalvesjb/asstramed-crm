@@ -210,8 +210,7 @@ async function ensureFinancialDefaults(dryRun: boolean): Promise<void> {
 
   const paymentMethods = [
     { name: "PIX", description: "Pagamento via PIX" },
-    { name: "Boleto", description: "Pagamento por boleto bancario" },
-    { name: "Transferencia", description: "Transferencia bancaria" }
+    { name: "Boleto", description: "Pagamento por boleto bancario" }
   ];
 
   if (dryRun) {
@@ -248,6 +247,18 @@ async function ensureFinancialDefaults(dryRun: boolean): Promise<void> {
       })
     )
   );
+
+  await prisma.paymentMethod.updateMany({
+    where: {
+      name: {
+        contains: "transfer",
+        mode: "insensitive"
+      }
+    },
+    data: {
+      isActive: false
+    }
+  });
 
   console.log("[seed] configuracoes financeiras padrao sincronizadas.");
 }

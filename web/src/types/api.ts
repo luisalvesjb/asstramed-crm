@@ -17,6 +17,7 @@ export interface ApiUser {
 
 export interface Company {
   id: string;
+  code?: number;
   name: string;
   legalName?: string | null;
   city?: string | null;
@@ -72,6 +73,70 @@ export interface DashboardResponse {
     totalOpen: number;
   };
   activities: Activity[];
+  messages: {
+    openByPriority: {
+      alta: number;
+      media: number;
+      baixa: number;
+      total: number;
+    };
+    highlighted: CompanyMessage[];
+  };
+}
+
+export type MessagePriority = "ALTA" | "MEDIA" | "BAIXA";
+
+export interface CompanyMessage {
+  id: string;
+  companyId: string;
+  parentMessageId?: string | null;
+  content: string;
+  priority: MessagePriority;
+  directedToId?: string | null;
+  createdById: string;
+  resolvedAt?: string | null;
+  resolvedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  company: {
+    id: string;
+    code?: number;
+    name: string;
+  };
+  createdBy: {
+    id: string;
+    name: string;
+  };
+  directedTo?: {
+    id: string;
+    name: string;
+  } | null;
+  resolvedBy?: {
+    id: string;
+    name: string;
+  } | null;
+  _count?: {
+    replies: number;
+  };
+}
+
+export interface CompanyMessageReply {
+  id: string;
+  companyId: string;
+  parentMessageId?: string | null;
+  content: string;
+  priority: MessagePriority;
+  createdById: string;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CompanyMessageThread {
+  root: CompanyMessage;
+  replies: CompanyMessageReply[];
 }
 
 export interface Permission {
@@ -202,6 +267,11 @@ export interface FinancialEntry {
   categoryId: string;
   costCenterId?: string | null;
   paymentMethodId?: string | null;
+  paymentKey?: string | null;
+  bankSlipPath?: string | null;
+  bankSlipMimeType?: string | null;
+  paymentReceiptPath?: string | null;
+  paymentReceiptMimeType?: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;

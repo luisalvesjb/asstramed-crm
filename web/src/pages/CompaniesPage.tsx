@@ -69,7 +69,9 @@ export function CompaniesPage() {
               <div className="company-logo-placeholder">{record.name.slice(0, 2).toUpperCase()}</div>
             )}
             <div>
-              <strong>{record.name}</strong>
+              <strong>
+                #{String(record.code ?? 0).padStart(4, "0")} - {record.name}
+              </strong>
               <small>{record.personalResponsible || "Sem responsavel"}</small>
             </div>
           </div>

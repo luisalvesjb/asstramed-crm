@@ -8,6 +8,9 @@ import { AppError } from "../errors/app-error";
 
 const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   "dashboard.read": "Visualizar dashboard",
+  "messages.read": "Visualizar mensagens internas por empresa",
+  "messages.write": "Cadastrar e responder mensagens internas",
+  "messages.resolve": "Resolver mensagens internas",
   "activities.read": "Visualizar atividades",
   "activities.create": "Criar atividades",
   "activities.finish": "Concluir ou alterar status de atividades",

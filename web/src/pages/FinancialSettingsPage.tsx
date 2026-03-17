@@ -3,8 +3,16 @@ import { TableProps } from "antd";
 import { AxiosError } from "axios";
 import { api } from "../services/api";
 import { CostCenter, FinancialCategory, PaymentMethod } from "../types/api";
-import { AppButton, AppCheckbox, AppInput, AppModal, AppTable, AppTabs } from "../ui/components";
-import { notifyError, notifySuccess } from "../ui/feedback/notifications";
+import {
+  AppButton,
+  AppCheckbox,
+  AppInput,
+  AppModal,
+  AppTable,
+  AppTabs,
+  DashboardFilterSelect
+} from "../ui/components";
+import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
 
 type SettingKind = "categories" | "cost-centers" | "payment-methods";
 
@@ -39,6 +47,7 @@ export function FinancialSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingKind>("categories");
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
 
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -74,20 +83,43 @@ export function FinancialSettingsPage() {
       title: "Acoes",
       key: "actions",
       render: (_, record) => (
-        <AppButton
-          size="small"
-          onClick={() => {
-            setEditingId(record.id);
-            setForm({
-              name: record.name,
-              description: record.description ?? "",
-              isActive: record.isActive
-            });
-            setModalOpen(true);
-          }}
-        >
-          Editar
-        </AppButton>
+        <div className="filters-actions">
+          <AppButton
+            size="small"
+            onClick={() => {
+              setEditingId(record.id);
+              setForm({
+                name: record.name,
+                description: record.description ?? "",
+                isActive: record.isActive
+              });
+              setModalOpen(true);
+            }}
+          >
+            Editar
+          </AppButton>
+          {record.isActive ? (
+            <AppButton
+              size="small"
+              danger
+              onClick={() => {
+                showConfirmDialog({
+                  title: `Desativar ${KIND_LABEL[activeTab]}`,
+                  content: "O item ficara oculto para novos lancamentos. Deseja continuar?",
+                  onConfirm: async () => {
+                    await deactivateSetting(record.id);
+                  }
+                });
+              }}
+            >
+              Excluir
+            </AppButton>
+          ) : (
+            <AppButton size="small" onClick={() => void reactivateSetting(record.id)}>
+              Ativar
+            </AppButton>
+          )}
+        </div>
       )
     }
   ];
@@ -97,9 +129,15 @@ export function FinancialSettingsPage() {
 
     try {
       const [categoryResponse, costCenterResponse, paymentMethodResponse] = await Promise.all([
-        api.get<FinancialCategory[]>("/financial/settings/categories"),
-        api.get<CostCenter[]>("/financial/settings/cost-centers"),
-        api.get<PaymentMethod[]>("/financial/settings/payment-methods")
+        api.get<FinancialCategory[]>("/financial/settings/categories", {
+          params: { status: statusFilter }
+        }),
+        api.get<CostCenter[]>("/financial/settings/cost-centers", {
+          params: { status: statusFilter }
+        }),
+        api.get<PaymentMethod[]>("/financial/settings/payment-methods", {
+          params: { status: statusFilter }
+        })
       ]);
 
       setCategories(categoryResponse.data);
@@ -114,7 +152,7 @@ export function FinancialSettingsPage() {
 
   useEffect(() => {
     void loadSettings();
-  }, []);
+  }, [statusFilter]);
 
   function openCreate() {
     setEditingId(null);
@@ -158,6 +196,34 @@ export function FinancialSettingsPage() {
     }
   }
 
+  async function deactivateSetting(id: string) {
+    try {
+      await api.delete(`/financial/settings/${activeTab}/${id}`);
+      notifySuccess(`${KIND_LABEL[activeTab]} desativado`);
+      await loadSettings();
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.message as string | undefined)
+          : "Nao foi possivel desativar.";
+      notifyError("Financeiro", message ?? "Nao foi possivel desativar.");
+    }
+  }
+
+  async function reactivateSetting(id: string) {
+    try {
+      await api.patch(`/financial/settings/${activeTab}/${id}`, { isActive: true });
+      notifySuccess(`${KIND_LABEL[activeTab]} reativado`);
+      await loadSettings();
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.message as string | undefined)
+          : "Nao foi possivel reativar.";
+      notifyError("Financeiro", message ?? "Nao foi possivel reativar.");
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -176,6 +242,18 @@ export function FinancialSettingsPage() {
           { key: "payment-methods", label: "Formas de Pagamento" }
         ]}
       />
+
+      <div className="asstramed-dashboard-filters">
+        <DashboardFilterSelect
+          value={statusFilter}
+          options={[
+            { label: "Ativos", value: "active" },
+            { label: "Inativos", value: "inactive" },
+            { label: "Todos", value: "all" }
+          ]}
+          onChange={(value) => setStatusFilter((value as "active" | "inactive" | "all") || "active")}
+        />
+      </div>
 
       <AppTable<BaseSetting>
         rowKey="id"

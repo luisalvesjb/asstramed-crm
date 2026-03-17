@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   FinancialEntryStatus,
   FinancialRecurrenceCycle,
@@ -33,6 +35,7 @@ interface CreateFinancialEntryInput {
   categoryId: string;
   costCenterId?: string;
   paymentMethodId?: string;
+  paymentKey?: string;
   isFixed: boolean;
   recurrenceCycle: FinancialRecurrenceCycle;
   recurrenceEndDate?: Date;
@@ -49,6 +52,7 @@ interface UpdateFinancialEntryInput {
   categoryId?: string;
   costCenterId?: string | null;
   paymentMethodId?: string | null;
+  paymentKey?: string | null;
   isFixed?: boolean;
   recurrenceCycle?: FinancialRecurrenceCycle;
   recurrenceEndDate?: Date | null;
@@ -137,6 +141,10 @@ async function validateReferences(input: {
 
     if (!method || !method.isActive) {
       throw new AppError("Forma de pagamento invalida", 422);
+    }
+
+    if (/transfer/i.test(method.name)) {
+      throw new AppError("Forma de pagamento 'Transferencia' foi descontinuada. Use PIX ou Boleto.", 422);
     }
   }
 }
@@ -306,6 +314,7 @@ export async function createFinancialEntry(actorId: string, input: CreateFinanci
       categoryId: input.categoryId,
       costCenterId: input.costCenterId,
       paymentMethodId: input.paymentMethodId,
+      paymentKey: normalizeNullableText(input.paymentKey),
       isFixed: input.isFixed,
       recurrenceCycle: input.recurrenceCycle,
       recurrenceEndDate: input.recurrenceEndDate,
@@ -383,6 +392,8 @@ export async function updateFinancialEntry(
       categoryId: input.categoryId,
       costCenterId: input.costCenterId === undefined ? undefined : input.costCenterId,
       paymentMethodId: input.paymentMethodId === undefined ? undefined : input.paymentMethodId,
+      paymentKey:
+        input.paymentKey === undefined ? undefined : normalizeNullableText(input.paymentKey ?? undefined),
       isFixed: nextIsFixed,
       recurrenceCycle: nextCycle,
       recurrenceEndDate:
@@ -415,6 +426,7 @@ export async function markFinancialEntryAsPaid(
   input: {
     paymentDate?: Date;
     paymentMethodId?: string;
+    paymentKey?: string;
   }
 ) {
   const current = await prisma.financialEntry.findUnique({ where: { id } });
@@ -432,6 +444,7 @@ export async function markFinancialEntryAsPaid(
     data: {
       paymentDate: input.paymentDate ?? new Date(),
       paymentMethodId: input.paymentMethodId ?? current.paymentMethodId,
+      paymentKey: input.paymentKey ? normalizeNullableText(input.paymentKey) : current.paymentKey,
       status: FinancialEntryStatus.PAGO
     },
     include: {
@@ -477,4 +490,73 @@ export async function deleteFinancialEntry(actorId: string, id: string) {
   });
 
   return deleted;
+}
+
+function resolveFileExtension(fileName: string): string {
+  const extension = path.extname(fileName).toLowerCase();
+  return extension || ".bin";
+}
+
+async function attachFinancialEntryFile(
+  actorId: string,
+  id: string,
+  kind: "bank-slip" | "payment-receipt",
+  file: Express.Multer.File
+) {
+  const current = await prisma.financialEntry.findUnique({ where: { id } });
+
+  if (!current || current.deletedAt) {
+    throw new AppError("Lancamento financeiro nao encontrado", 404);
+  }
+
+  const extension = resolveFileExtension(file.originalname);
+  const fileName = `${kind}-${Date.now()}${extension}`;
+  const absoluteDirectory = path.resolve(process.cwd(), "assets/financial-entries", id);
+  const absolutePath = path.resolve(absoluteDirectory, fileName);
+  const relativePath = `assets/financial-entries/${id}/${fileName}`;
+
+  fs.mkdirSync(absoluteDirectory, { recursive: true });
+  fs.writeFileSync(absolutePath, file.buffer);
+
+  const updated = await prisma.financialEntry.update({
+    where: { id },
+    data:
+      kind === "bank-slip"
+        ? {
+            bankSlipPath: relativePath,
+            bankSlipMimeType: file.mimetype
+          }
+        : {
+            paymentReceiptPath: relativePath,
+            paymentReceiptMimeType: file.mimetype
+          }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: kind === "bank-slip" ? "FINANCIAL_ENTRY_BANK_SLIP_ATTACHED" : "FINANCIAL_ENTRY_RECEIPT_ATTACHED",
+    entity: "FINANCIAL_ENTRY",
+    entityId: id,
+    payload: {
+      filePath: relativePath
+    }
+  });
+
+  return updated;
+}
+
+export async function attachFinancialEntryBankSlip(
+  actorId: string,
+  id: string,
+  file: Express.Multer.File
+) {
+  return attachFinancialEntryFile(actorId, id, "bank-slip", file);
+}
+
+export async function attachFinancialEntryPaymentReceipt(
+  actorId: string,
+  id: string,
+  file: Express.Multer.File
+) {
+  return attachFinancialEntryFile(actorId, id, "payment-receipt", file);
 }

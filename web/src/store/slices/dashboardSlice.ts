@@ -1,6 +1,13 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { api } from "../../services/api";
-import { Activity, ActivityStatus, ApiUser, Company, DashboardResponse } from "../../types/api";
+import {
+  Activity,
+  ActivityStatus,
+  ApiUser,
+  Company,
+  CompanyMessage,
+  DashboardResponse
+} from "../../types/api";
 import type { RootState } from "../index";
 
 interface DashboardFilters {
@@ -19,6 +26,15 @@ interface DashboardState {
     resolved: number;
     unresolved: number;
     totalOpen: number;
+  };
+  messages: {
+    openByPriority: {
+      alta: number;
+      media: number;
+      baixa: number;
+      total: number;
+    };
+    highlighted: CompanyMessage[];
   };
   activities: Activity[];
   companies: Company[];
@@ -62,6 +78,15 @@ const initialState: DashboardState = {
     resolved: 0,
     unresolved: 0,
     totalOpen: 0
+  },
+  messages: {
+    openByPriority: {
+      alta: 0,
+      media: 0,
+      baixa: 0,
+      total: 0
+    },
+    highlighted: []
   },
   activities: [],
   companies: [],
@@ -211,6 +236,7 @@ const dashboardSlice = createSlice({
         state.loading = false;
         state.kpis = action.payload.kpis;
         state.activities = action.payload.activities;
+        state.messages = action.payload.messages;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
         state.loading = false;

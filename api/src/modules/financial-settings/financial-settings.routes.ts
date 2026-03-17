@@ -23,6 +23,11 @@ financialSettingsRoutes.patch(
   permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
   financialSettingsController.updateCategory
 );
+financialSettingsRoutes.delete(
+  "/categories/:id",
+  permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
+  financialSettingsController.deactivateCategory
+);
 
 financialSettingsRoutes.get(
   "/cost-centers",
@@ -39,6 +44,11 @@ financialSettingsRoutes.patch(
   permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
   financialSettingsController.updateCostCenter
 );
+financialSettingsRoutes.delete(
+  "/cost-centers/:id",
+  permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
+  financialSettingsController.deactivateCostCenter
+);
 
 financialSettingsRoutes.get(
   "/payment-methods",
@@ -54,4 +64,9 @@ financialSettingsRoutes.patch(
   "/payment-methods/:id",
   permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
   financialSettingsController.updatePaymentMethod
+);
+financialSettingsRoutes.delete(
+  "/payment-methods/:id",
+  permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
+  financialSettingsController.deactivatePaymentMethod
 );

@@ -17,6 +17,7 @@ export async function getDashboardActivities(input: {
   companyId?: string;
   responsibleId?: string;
   tagKey?: string;
+  includeMessages?: boolean;
 }) {
   const date = input.date ?? new Date();
   const { start, end } = dayBounds(date);
@@ -97,6 +98,86 @@ export async function getDashboardActivities(input: {
     })
   ]);
 
+  const [openMessagesByPriorityRaw, highlightedMessages] = input.includeMessages === false
+    ? [[], []]
+    : await Promise.all([
+        prisma.companyMessage.groupBy({
+          by: ["priority"],
+          where: {
+            companyId: input.companyId,
+            parentMessageId: null,
+            deletedAt: null,
+            resolvedAt: null
+          },
+          _count: {
+            _all: true
+          }
+        }),
+        prisma.companyMessage.findMany({
+          where: {
+            companyId: input.companyId,
+            parentMessageId: null,
+            deletedAt: null
+          },
+          include: {
+            company: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            },
+            createdBy: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            directedTo: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            _count: {
+              select: {
+                replies: {
+                  where: {
+                    deletedAt: null
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [{ resolvedAt: "asc" }, { priority: "asc" }, { createdAt: "desc" }],
+          take: 5
+        })
+      ]);
+
+  const openMessagesByPriority = {
+    alta: 0,
+    media: 0,
+    baixa: 0,
+    total: 0
+  };
+
+  for (const row of openMessagesByPriorityRaw) {
+    if (row.priority === "ALTA") {
+      openMessagesByPriority.alta = row._count._all;
+      openMessagesByPriority.total += row._count._all;
+      continue;
+    }
+
+    if (row.priority === "MEDIA") {
+      openMessagesByPriority.media = row._count._all;
+      openMessagesByPriority.total += row._count._all;
+      continue;
+    }
+
+    openMessagesByPriority.baixa = row._count._all;
+    openMessagesByPriority.total += row._count._all;
+  }
+
   return {
     filters: {
       date,
@@ -110,6 +191,10 @@ export async function getDashboardActivities(input: {
       unresolved: unresolvedCount,
       totalOpen: totalOpenedCount
     },
-    activities
+    activities,
+    messages: {
+      openByPriority: openMessagesByPriority,
+      highlighted: highlightedMessages
+    }
   };
 }

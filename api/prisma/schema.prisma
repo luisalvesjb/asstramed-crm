@@ -30,28 +30,37 @@ enum FinancialRecurrenceCycle {
   YEARLY
 }
 
+enum MessagePriority {
+  ALTA
+  MEDIA
+  BAIXA
+}
+
 model User {
-  id                 String                  @id @default(uuid())
-  name               String
-  email              String                  @unique
-  passwordHash       String
-  avatarPath         String?
-  avatarMimeType     String?
-  profileId          String
-  profile            Profile                 @relation(fields: [profileId], references: [id], onDelete: Restrict)
-  isAdmin            Boolean                 @default(false)
-  isActive           Boolean                 @default(true)
-  lastAccessAt       DateTime?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  permissions        UserPermission[]
-  createdActivities  Activity[]              @relation("ActivityCreatedBy")
-  assignedActivities Activity[]              @relation("ActivityAssignedTo")
-  uploadedDocuments  Document[]              @relation("DocumentUploadedBy")
-  refreshTokens      RefreshToken[]
-  auditLogs          AuditLog[]              @relation("AuditActor")
-  statusChanges      ActivityStatusHistory[] @relation("ActivityStatusChangedBy")
-  financialEntries   FinancialEntry[]        @relation("FinancialEntryCreatedBy")
+  id                      String                  @id @default(uuid())
+  name                    String
+  email                   String                  @unique
+  passwordHash            String
+  avatarPath              String?
+  avatarMimeType          String?
+  profileId               String
+  profile                 Profile                 @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  isAdmin                 Boolean                 @default(false)
+  isActive                Boolean                 @default(true)
+  lastAccessAt            DateTime?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  permissions             UserPermission[]
+  createdActivities       Activity[]              @relation("ActivityCreatedBy")
+  assignedActivities      Activity[]              @relation("ActivityAssignedTo")
+  uploadedDocuments       Document[]              @relation("DocumentUploadedBy")
+  refreshTokens           RefreshToken[]
+  auditLogs               AuditLog[]              @relation("AuditActor")
+  statusChanges           ActivityStatusHistory[] @relation("ActivityStatusChangedBy")
+  financialEntries        FinancialEntry[]        @relation("FinancialEntryCreatedBy")
+  createdCompanyMessages  CompanyMessage[]        @relation("CompanyMessageCreatedBy")
+  directedCompanyMessages CompanyMessage[]        @relation("CompanyMessageDirectedTo")
+  resolvedCompanyMessages CompanyMessage[]        @relation("CompanyMessageResolvedBy")
 }
 
 model Profile {
@@ -69,10 +78,10 @@ model Profile {
 }
 
 model Permission {
-  id          String           @id @default(uuid())
-  key         String           @unique
+  id          String              @id @default(uuid())
+  key         String              @unique
   description String?
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime            @default(now())
   users       UserPermission[]
   profiles    ProfilePermission[]
 }
@@ -99,6 +108,7 @@ model ProfilePermission {
 
 model Company {
   id                  String           @id @default(uuid())
+  code                Int              @unique @default(autoincrement())
   name                String
   legalName           String?
   city                String?
@@ -119,6 +129,7 @@ model Company {
   documents           Document[]
   contracts           Contract[]
   activities          Activity[]
+  messages            CompanyMessage[]
 }
 
 model CompanyContact {
@@ -134,22 +145,22 @@ model CompanyContact {
 }
 
 model CompanyAddress {
-  id          String   @id @default(uuid())
-  companyId   String   @unique
-  street      String?
-  number      String?
-  complement  String?
-  district    String?
-  city        String?
-  state       String?
-  zipCode     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  companyId  String   @unique
+  street     String?
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String?
+  zipCode    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model Document {
-  id           String    @id @default(uuid())
+  id           String             @id @default(uuid())
   companyId    String
   name         String
   title        String
@@ -158,10 +169,10 @@ model Document {
   fileSize     Int
   mimeType     String
   uploadedById String
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime           @default(now())
   deletedAt    DateTime?
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  uploadedBy   User      @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy   User               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
   contracts    ContractDocument[]
 }
 
@@ -225,32 +236,37 @@ model PaymentMethod {
 }
 
 model FinancialEntry {
-  id                 String                   @id @default(uuid())
-  title              String
-  description        String?
-  amount             Decimal
-  status             FinancialEntryStatus     @default(PENDENTE)
-  dueDate            DateTime
-  paymentDate        DateTime?
-  launchDate         DateTime                 @default(now())
-  isFixed            Boolean                  @default(false)
-  recurrenceCycle    FinancialRecurrenceCycle @default(NONE)
-  nextRecurrenceDate DateTime?
-  recurrenceEndDate  DateTime?
-  parentEntryId      String?
-  categoryId         String
-  costCenterId       String?
-  paymentMethodId    String?
-  createdById        String
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  deletedAt          DateTime?
-  parentEntry        FinancialEntry?          @relation("FinancialEntryRecurrence", fields: [parentEntryId], references: [id], onDelete: SetNull)
-  generatedEntries   FinancialEntry[]         @relation("FinancialEntryRecurrence")
-  category           FinancialCategory        @relation(fields: [categoryId], references: [id])
-  costCenter         CostCenter?              @relation(fields: [costCenterId], references: [id])
-  paymentMethod      PaymentMethod?           @relation(fields: [paymentMethodId], references: [id])
-  createdBy          User                     @relation("FinancialEntryCreatedBy", fields: [createdById], references: [id])
+  id                     String                   @id @default(uuid())
+  title                  String
+  description            String?
+  amount                 Decimal
+  status                 FinancialEntryStatus     @default(PENDENTE)
+  dueDate                DateTime
+  paymentDate            DateTime?
+  launchDate             DateTime                 @default(now())
+  isFixed                Boolean                  @default(false)
+  recurrenceCycle        FinancialRecurrenceCycle @default(NONE)
+  nextRecurrenceDate     DateTime?
+  recurrenceEndDate      DateTime?
+  parentEntryId          String?
+  categoryId             String
+  costCenterId           String?
+  paymentMethodId        String?
+  paymentKey             String?
+  bankSlipPath           String?
+  bankSlipMimeType       String?
+  paymentReceiptPath     String?
+  paymentReceiptMimeType String?
+  createdById            String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  deletedAt              DateTime?
+  parentEntry            FinancialEntry?          @relation("FinancialEntryRecurrence", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  generatedEntries       FinancialEntry[]         @relation("FinancialEntryRecurrence")
+  category               FinancialCategory        @relation(fields: [categoryId], references: [id])
+  costCenter             CostCenter?              @relation(fields: [costCenterId], references: [id])
+  paymentMethod          PaymentMethod?           @relation(fields: [paymentMethodId], references: [id])
+  createdBy              User                     @relation("FinancialEntryCreatedBy", fields: [createdById], references: [id])
 
   @@index([dueDate, status])
   @@index([paymentDate, status])
@@ -260,22 +276,46 @@ model FinancialEntry {
   @@index([isFixed, nextRecurrenceDate])
 }
 
+model CompanyMessage {
+  id              String           @id @default(uuid())
+  companyId       String
+  parentMessageId String?
+  content         String
+  priority        MessagePriority  @default(MEDIA)
+  directedToId    String?
+  createdById     String
+  resolvedAt      DateTime?
+  resolvedById    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parentMessage   CompanyMessage?  @relation("CompanyMessageThread", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  replies         CompanyMessage[] @relation("CompanyMessageThread")
+  directedTo      User?            @relation("CompanyMessageDirectedTo", fields: [directedToId], references: [id], onDelete: SetNull)
+  createdBy       User             @relation("CompanyMessageCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  resolvedBy      User?            @relation("CompanyMessageResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, parentMessageId, createdAt])
+  @@index([companyId, resolvedAt, priority])
+}
+
 model Activity {
-  id           String                 @id @default(uuid())
+  id           String                  @id @default(uuid())
   companyId    String
   orderExec    Int
   title        String
   description  String?
-  status       ActivityStatus         @default(PENDENTE)
+  status       ActivityStatus          @default(PENDENTE)
   assignedToId String
   createdById  String
   dueDate      DateTime?
   completedAt  DateTime?
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  company      Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  assignedTo   User                   @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
-  createdBy    User                   @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  company      Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignedTo   User                    @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
+  createdBy    User                    @relation("ActivityCreatedBy", fields: [createdById], references: [id])
   tags         ActivityTag[]
   history      ActivityStatusHistory[]
 
@@ -302,14 +342,14 @@ model ActivityTag {
 }
 
 model ActivityStatusHistory {
-  id          String         @id @default(uuid())
+  id          String          @id @default(uuid())
   activityId  String
   fromStatus  ActivityStatus?
   toStatus    ActivityStatus
   changedById String
-  changedAt   DateTime       @default(now())
-  activity    Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  changedBy   User           @relation("ActivityStatusChangedBy", fields: [changedById], references: [id])
+  changedAt   DateTime        @default(now())
+  activity    Activity        @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  changedBy   User            @relation("ActivityStatusChangedBy", fields: [changedById], references: [id])
 
   @@index([activityId, changedAt])
 }

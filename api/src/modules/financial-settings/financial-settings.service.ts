@@ -14,14 +14,119 @@ interface FinancialSettingUpdateInput {
   isActive?: boolean;
 }
 
+interface FinancialSettingListFilters {
+  status?: "active" | "inactive" | "all";
+  includeUsedInactive?: boolean;
+}
+
 function normalizeNullable(value?: string): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 }
 
-export async function listCategories() {
+function buildCategoryWhere(filters?: FinancialSettingListFilters) {
+  const status = filters?.status ?? "active";
+  const includeUsedInactive = filters?.includeUsedInactive ?? false;
+
+  if (status === "inactive") {
+    return { isActive: false };
+  }
+
+  if (status === "all") {
+    return undefined;
+  }
+
+  if (!includeUsedInactive) {
+    return { isActive: true };
+  }
+
+  return {
+    OR: [
+      { isActive: true },
+      {
+        isActive: false,
+        entries: {
+          some: {
+            deletedAt: null
+          }
+        }
+      }
+    ]
+  };
+}
+
+function buildCostCenterWhere(filters?: FinancialSettingListFilters) {
+  const status = filters?.status ?? "active";
+  const includeUsedInactive = filters?.includeUsedInactive ?? false;
+
+  if (status === "inactive") {
+    return { isActive: false };
+  }
+
+  if (status === "all") {
+    return undefined;
+  }
+
+  if (!includeUsedInactive) {
+    return { isActive: true };
+  }
+
+  return {
+    OR: [
+      { isActive: true },
+      {
+        isActive: false,
+        entries: {
+          some: {
+            deletedAt: null
+          }
+        }
+      }
+    ]
+  };
+}
+
+function buildPaymentMethodWhere(filters?: FinancialSettingListFilters) {
+  const status = filters?.status ?? "active";
+  const includeUsedInactive = filters?.includeUsedInactive ?? false;
+
+  if (status === "inactive") {
+    return { isActive: false };
+  }
+
+  if (status === "all") {
+    return undefined;
+  }
+
+  if (!includeUsedInactive) {
+    return { isActive: true };
+  }
+
+  return {
+    OR: [
+      { isActive: true },
+      {
+        isActive: false,
+        entries: {
+          some: {
+            deletedAt: null
+          }
+        }
+      }
+    ]
+  };
+}
+
+function ensureNotTransferPaymentMethodName(name: string) {
+  if (/transfer/i.test(name)) {
+    throw new AppError("Forma de pagamento 'Transferencia' foi descontinuada. Use PIX ou Boleto.", 422);
+  }
+}
+
+export async function listCategories(filters?: FinancialSettingListFilters) {
   return prisma.financialCategory.findMany({
+    where: buildCategoryWhere(filters),
     orderBy: { name: "asc" }
   });
 }
@@ -102,8 +207,9 @@ export async function updateCategory(actorId: string, id: string, input: Financi
   return updated;
 }
 
-export async function listCostCenters() {
+export async function listCostCenters(filters?: FinancialSettingListFilters) {
   return prisma.costCenter.findMany({
+    where: buildCostCenterWhere(filters),
     orderBy: { name: "asc" }
   });
 }
@@ -184,17 +290,21 @@ export async function updateCostCenter(actorId: string, id: string, input: Finan
   return updated;
 }
 
-export async function listPaymentMethods() {
+export async function listPaymentMethods(filters?: FinancialSettingListFilters) {
   return prisma.paymentMethod.findMany({
+    where: buildPaymentMethodWhere(filters),
     orderBy: { name: "asc" }
   });
 }
 
 export async function createPaymentMethod(actorId: string, input: FinancialSettingInput) {
+  const normalizedName = input.name.trim();
+  ensureNotTransferPaymentMethodName(normalizedName);
+
   const exists = await prisma.paymentMethod.findFirst({
     where: {
       name: {
-        equals: input.name.trim(),
+        equals: normalizedName,
         mode: "insensitive"
       }
     }
@@ -206,7 +316,7 @@ export async function createPaymentMethod(actorId: string, input: FinancialSetti
 
   const method = await prisma.paymentMethod.create({
     data: {
-      name: input.name.trim(),
+      name: normalizedName,
       description: normalizeNullable(input.description),
       isActive: input.isActive ?? true
     }
@@ -230,6 +340,10 @@ export async function updatePaymentMethod(actorId: string, id: string, input: Fi
   }
 
   const nextName = input.name?.trim();
+
+  if (nextName) {
+    ensureNotTransferPaymentMethodName(nextName);
+  }
 
   if (nextName && nextName.toLowerCase() !== current.name.toLowerCase()) {
     const exists = await prisma.paymentMethod.findFirst({
@@ -259,6 +373,78 @@ export async function updatePaymentMethod(actorId: string, id: string, input: Fi
   await registerAuditLog({
     actorId,
     action: "PAYMENT_METHOD_UPDATED",
+    entity: "PAYMENT_METHOD",
+    entityId: id
+  });
+
+  return updated;
+}
+
+export async function deactivateCategory(actorId: string, id: string) {
+  const current = await prisma.financialCategory.findUnique({ where: { id } });
+
+  if (!current) {
+    throw new AppError("Categoria financeira nao encontrada", 404);
+  }
+
+  const updated = await prisma.financialCategory.update({
+    where: { id },
+    data: {
+      isActive: false
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "FINANCIAL_CATEGORY_DEACTIVATED",
+    entity: "FINANCIAL_CATEGORY",
+    entityId: id
+  });
+
+  return updated;
+}
+
+export async function deactivateCostCenter(actorId: string, id: string) {
+  const current = await prisma.costCenter.findUnique({ where: { id } });
+
+  if (!current) {
+    throw new AppError("Centro de custo nao encontrado", 404);
+  }
+
+  const updated = await prisma.costCenter.update({
+    where: { id },
+    data: {
+      isActive: false
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "COST_CENTER_DEACTIVATED",
+    entity: "COST_CENTER",
+    entityId: id
+  });
+
+  return updated;
+}
+
+export async function deactivatePaymentMethod(actorId: string, id: string) {
+  const current = await prisma.paymentMethod.findUnique({ where: { id } });
+
+  if (!current) {
+    throw new AppError("Forma de pagamento nao encontrada", 404);
+  }
+
+  const updated = await prisma.paymentMethod.update({
+    where: { id },
+    data: {
+      isActive: false
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "PAYMENT_METHOD_DEACTIVATED",
     entity: "PAYMENT_METHOD",
     entityId: id
   });

@@ -34,6 +34,7 @@ export const createFinancialEntrySchema = z.object({
   categoryId: z.string().uuid(),
   costCenterId: z.string().uuid().optional(),
   paymentMethodId: z.string().uuid().optional(),
+  paymentKey: z.string().optional(),
   isFixed: z.boolean().default(false),
   recurrenceCycle: z.nativeEnum(FinancialRecurrenceCycle).default(FinancialRecurrenceCycle.NONE),
   recurrenceEndDate: z.coerce.date().optional()
@@ -50,6 +51,7 @@ export const updateFinancialEntrySchema = z.object({
   categoryId: z.string().uuid().optional(),
   costCenterId: z.string().uuid().nullable().optional(),
   paymentMethodId: z.string().uuid().nullable().optional(),
+  paymentKey: z.string().nullable().optional(),
   isFixed: z.boolean().optional(),
   recurrenceCycle: z.nativeEnum(FinancialRecurrenceCycle).optional(),
   recurrenceEndDate: z.coerce.date().nullable().optional()
@@ -57,5 +59,6 @@ export const updateFinancialEntrySchema = z.object({
 
 export const payFinancialEntrySchema = z.object({
   paymentDate: z.coerce.date().optional(),
-  paymentMethodId: z.string().uuid().optional()
+  paymentMethodId: z.string().uuid().optional(),
+  paymentKey: z.string().optional()
 });

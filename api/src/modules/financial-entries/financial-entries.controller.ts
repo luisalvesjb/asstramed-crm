@@ -7,6 +7,7 @@ import {
   updateFinancialEntrySchema
 } from "./financial-entries.validators";
 import * as financialEntriesService from "./financial-entries.service";
+import { AppError } from "../../errors/app-error";
 
 export async function listFinancialEntries(req: Request, res: Response): Promise<void> {
   const filters = listFinancialEntriesSchema.parse(req.query);
@@ -38,4 +39,30 @@ export async function deleteFinancialEntry(req: Request, res: Response): Promise
   const { id } = financialEntryIdParamSchema.parse(req.params);
   const result = await financialEntriesService.deleteFinancialEntry(req.user!.id, id);
   res.status(200).json(result);
+}
+
+export async function uploadFinancialEntryBankSlip(req: Request, res: Response): Promise<void> {
+  const { id } = financialEntryIdParamSchema.parse(req.params);
+
+  if (!req.file) {
+    throw new AppError("Arquivo do boleto e obrigatorio", 422);
+  }
+
+  const entry = await financialEntriesService.attachFinancialEntryBankSlip(req.user!.id, id, req.file);
+  res.status(200).json(entry);
+}
+
+export async function uploadFinancialEntryPaymentReceipt(req: Request, res: Response): Promise<void> {
+  const { id } = financialEntryIdParamSchema.parse(req.params);
+
+  if (!req.file) {
+    throw new AppError("Arquivo do comprovante e obrigatorio", 422);
+  }
+
+  const entry = await financialEntriesService.attachFinancialEntryPaymentReceipt(
+    req.user!.id,
+    id,
+    req.file
+  );
+  res.status(200).json(entry);
 }

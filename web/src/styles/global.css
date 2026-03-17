@@ -667,6 +667,18 @@ h3 {
   font-size: 16px;
 }
 
+.company-code-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #d8e1f2;
+  background: #f4f7ff;
+  color: #375594;
+  padding: 1px 8px;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
 .selected-company-main small {
   color: var(--text-soft);
 }
@@ -676,6 +688,82 @@ h3 {
   gap: 16px;
   flex-wrap: wrap;
   color: #546c8a;
+}
+
+.dashboard-messages-card {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.messages-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.messages-header h3 {
+  margin: 0;
+}
+
+.messages-priority-kpis {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.messages-highlight-list {
+  display: grid;
+  gap: 8px;
+}
+
+.message-highlight-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.message-highlight-main {
+  display: grid;
+  gap: 4px;
+}
+
+.message-highlight-main p {
+  margin: 0;
+}
+
+.message-highlight-main small {
+  color: var(--text-soft);
+}
+
+.messages-thread-container {
+  display: grid;
+  gap: 10px;
+}
+
+.message-thread-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: #fff;
+}
+
+.message-thread-item-root {
+  border-left: 4px solid var(--theme-primary);
+}
+
+.message-thread-item p {
+  margin: 4px 0;
+}
+
+.message-thread-item small {
+  color: var(--text-soft);
 }
 
 .company-info-grid {
@@ -1246,6 +1334,10 @@ h3 {
 
   .kpi-grid,
   .asstramed-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .messages-priority-kpis {
     grid-template-columns: 1fr;
   }
 

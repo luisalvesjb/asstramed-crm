@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import {
   createFinancialSettingSchema,
   financialSettingIdParamSchema,
+  listFinancialSettingsSchema,
   updateFinancialSettingSchema
 } from "./financial-settings.validators";
 import * as financialSettingsService from "./financial-settings.service";
 
-export async function listCategories(_req: Request, res: Response): Promise<void> {
-  const categories = await financialSettingsService.listCategories();
+export async function listCategories(req: Request, res: Response): Promise<void> {
+  const filters = listFinancialSettingsSchema.parse(req.query);
+  const categories = await financialSettingsService.listCategories(filters);
   res.status(200).json(categories);
 }
 
@@ -24,8 +26,9 @@ export async function updateCategory(req: Request, res: Response): Promise<void>
   res.status(200).json(category);
 }
 
-export async function listCostCenters(_req: Request, res: Response): Promise<void> {
-  const items = await financialSettingsService.listCostCenters();
+export async function listCostCenters(req: Request, res: Response): Promise<void> {
+  const filters = listFinancialSettingsSchema.parse(req.query);
+  const items = await financialSettingsService.listCostCenters(filters);
   res.status(200).json(items);
 }
 
@@ -42,8 +45,9 @@ export async function updateCostCenter(req: Request, res: Response): Promise<voi
   res.status(200).json(item);
 }
 
-export async function listPaymentMethods(_req: Request, res: Response): Promise<void> {
-  const items = await financialSettingsService.listPaymentMethods();
+export async function listPaymentMethods(req: Request, res: Response): Promise<void> {
+  const filters = listFinancialSettingsSchema.parse(req.query);
+  const items = await financialSettingsService.listPaymentMethods(filters);
   res.status(200).json(items);
 }
 
@@ -57,5 +61,23 @@ export async function updatePaymentMethod(req: Request, res: Response): Promise<
   const { id } = financialSettingIdParamSchema.parse(req.params);
   const payload = updateFinancialSettingSchema.parse(req.body);
   const item = await financialSettingsService.updatePaymentMethod(req.user!.id, id, payload);
+  res.status(200).json(item);
+}
+
+export async function deactivateCategory(req: Request, res: Response): Promise<void> {
+  const { id } = financialSettingIdParamSchema.parse(req.params);
+  const item = await financialSettingsService.deactivateCategory(req.user!.id, id);
+  res.status(200).json(item);
+}
+
+export async function deactivateCostCenter(req: Request, res: Response): Promise<void> {
+  const { id } = financialSettingIdParamSchema.parse(req.params);
+  const item = await financialSettingsService.deactivateCostCenter(req.user!.id, id);
+  res.status(200).json(item);
+}
+
+export async function deactivatePaymentMethod(req: Request, res: Response): Promise<void> {
+  const { id } = financialSettingIdParamSchema.parse(req.params);
+  const item = await financialSettingsService.deactivatePaymentMethod(req.user!.id, id);
   res.status(200).json(item);
 }

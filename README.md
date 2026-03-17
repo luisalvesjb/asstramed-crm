@@ -7,6 +7,33 @@ Projeto completo em `/Users/luisalves/Documents/workspace/personal/asstramed-crm
 
 ## Entrega concluida
 
+### Atualizacao 2026-03-17 (dashboard + mensagens + financeiro)
+
+- Filtro de empresa do dashboard sincronizado com o seletor global (topbar):
+  - ao selecionar empresa no topo, o dashboard respeita o filtro
+  - ao sair da empresa no card, o filtro eh limpo e volta para visao geral
+- Novo modulo de mensagens internas por empresa:
+  - prioridade (`ALTA`, `MEDIA`, `BAIXA`)
+  - destaque no dashboard (abertas por prioridade + ultimas 5)
+  - exibe quem cadastrou e para quem foi direcionada
+  - fluxo de conversa (thread): `Ver`, `Ver todas`, responder na propria mensagem
+  - resolucao de mensagem (fica no topo ate ser resolvida)
+- Codigo da empresa automatico no backend, sequencial a partir de `0001` (campo numerico `code` com exibicao formatada no frontend).
+- Financeiro:
+  - suporte a `chave` de pagamento (ex.: PIX)
+  - anexo de boleto por lancamento
+  - anexo de comprovante de pagamento
+  - upload salvo em `assets/financial-entries/[entryId]/arquivo.ext`
+  - forma de pagamento `Transferencia` descontinuada (bloqueada no backend)
+- Configuracoes financeiras com exclusao logica (soft delete):
+  - categorias, centros de custo e formas de pagamento agora podem ser “excluidos” via desativacao
+  - filtro de `ativos/inativos/todos` na tela de configuracoes
+  - inativos nao entram em novos lancamentos (so aparecem quando filtrado ou quando ja vinculados historicamente)
+- Auditoria reforcada:
+  - novas acoes de mensagens e anexos financeiros registradas em `AuditLog`.
+- Migration adicionada:
+  - `api/prisma/migrations/20260317143000_messages_financial_attachments_company_code`
+
 ### Atualizacao 2026-03-02 (`isAdmin`)
 
 - Flag `isAdmin` adicionada no modelo `User` (Prisma + migration).
@@ -135,6 +162,7 @@ Modulos entregues:
 - `financial-settings`
 - `financial-entries`
 - `financial-reports`
+- `messages`
 
 Regras principais implementadas:
 
@@ -202,19 +230,29 @@ Recursos de frontend:
 - `GET /api/financial/settings/categories`
 - `POST /api/financial/settings/categories`
 - `PATCH /api/financial/settings/categories/:id`
+- `DELETE /api/financial/settings/categories/:id`
 - `GET /api/financial/settings/cost-centers`
 - `POST /api/financial/settings/cost-centers`
 - `PATCH /api/financial/settings/cost-centers/:id`
+- `DELETE /api/financial/settings/cost-centers/:id`
 - `GET /api/financial/settings/payment-methods`
 - `POST /api/financial/settings/payment-methods`
 - `PATCH /api/financial/settings/payment-methods/:id`
+- `DELETE /api/financial/settings/payment-methods/:id`
 - `GET /api/financial/entries`
 - `POST /api/financial/entries`
 - `PATCH /api/financial/entries/:id`
 - `PATCH /api/financial/entries/:id/pay`
 - `DELETE /api/financial/entries/:id`
+- `POST /api/financial/entries/:id/bank-slip`
+- `POST /api/financial/entries/:id/payment-receipt`
 - `GET /api/financial/reports/daily`
 - `GET /api/financial/reports/outflow-by-day`
+- `GET /api/messages`
+- `GET /api/messages/:id/thread`
+- `POST /api/messages`
+- `POST /api/messages/:id/replies`
+- `PATCH /api/messages/:id/resolve`
 - `GET /api/feature-flags/permissions`
 - `GET/PUT /api/feature-flags/users/:userId`
 - `GET /api/profiles`

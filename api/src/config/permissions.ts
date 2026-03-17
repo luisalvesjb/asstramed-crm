@@ -1,5 +1,8 @@
 export const PERMISSIONS = {
   DASHBOARD_READ: "dashboard.read",
+  MESSAGES_READ: "messages.read",
+  MESSAGES_WRITE: "messages.write",
+  MESSAGES_RESOLVE: "messages.resolve",
   ACTIVITIES_READ: "activities.read",
   ACTIVITIES_CREATE: "activities.create",
   ACTIVITIES_FINISH: "activities.finish",
@@ -48,6 +51,9 @@ export const SYSTEM_PROFILE_TEMPLATES: SystemProfileTemplate[] = [
     isAdmin: false,
     permissions: [
       PERMISSIONS.DASHBOARD_READ,
+      PERMISSIONS.MESSAGES_READ,
+      PERMISSIONS.MESSAGES_WRITE,
+      PERMISSIONS.MESSAGES_RESOLVE,
       PERMISSIONS.ACTIVITIES_READ,
       PERMISSIONS.ACTIVITIES_CREATE,
       PERMISSIONS.ACTIVITIES_FINISH,
@@ -73,6 +79,8 @@ export const SYSTEM_PROFILE_TEMPLATES: SystemProfileTemplate[] = [
     isAdmin: false,
     permissions: [
       PERMISSIONS.DASHBOARD_READ,
+      PERMISSIONS.MESSAGES_READ,
+      PERMISSIONS.MESSAGES_WRITE,
       PERMISSIONS.ACTIVITIES_READ,
       PERMISSIONS.ACTIVITIES_CREATE,
       PERMISSIONS.ACTIVITIES_FINISH,
@@ -86,6 +94,7 @@ export const SYSTEM_PROFILE_TEMPLATES: SystemProfileTemplate[] = [
     isAdmin: false,
     permissions: [
       PERMISSIONS.DASHBOARD_READ,
+      PERMISSIONS.MESSAGES_READ,
       PERMISSIONS.FINANCE_READ,
       PERMISSIONS.FINANCE_WRITE,
       PERMISSIONS.FINANCE_SETTINGS,

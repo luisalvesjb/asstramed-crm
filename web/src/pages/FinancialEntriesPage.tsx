@@ -13,6 +13,7 @@ import {
 import {
   AppButton,
   AppCheckbox,
+  AppFileDragger,
   AppInput,
   AppModal,
   AppTable,
@@ -22,6 +23,7 @@ import {
 } from "../ui/components";
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
 import { formatCurrency, formatDate } from "../utils/format";
+import { resolveAssetUrl } from "../utils/asset-url";
 
 interface EntryFormState {
   title: string;
@@ -34,9 +36,16 @@ interface EntryFormState {
   categoryId: string;
   costCenterId: string;
   paymentMethodId: string;
+  paymentKey: string;
   isFixed: boolean;
   recurrenceCycle: FinancialRecurrenceCycle;
   recurrenceEndDate: string;
+}
+
+interface PayFormState {
+  paymentDate: string;
+  paymentMethodId: string;
+  paymentKey: string;
 }
 
 const STATUS_OPTIONS: Array<{ label: string; value: FinancialEntryStatus }> = [
@@ -104,9 +113,16 @@ const INITIAL_FORM: EntryFormState = {
   categoryId: "",
   costCenterId: "",
   paymentMethodId: "",
+  paymentKey: "",
   isFixed: false,
   recurrenceCycle: "NONE",
   recurrenceEndDate: ""
+};
+
+const INITIAL_PAY_FORM: PayFormState = {
+  paymentDate: todayInputDate(),
+  paymentMethodId: "",
+  paymentKey: ""
 };
 
 export function FinancialEntriesPage() {
@@ -120,6 +136,12 @@ export function FinancialEntriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [form, setForm] = useState<EntryFormState>(INITIAL_FORM);
+  const [bankSlipFile, setBankSlipFile] = useState<File | null>(null);
+  const [paymentReceiptFile, setPaymentReceiptFile] = useState<File | null>(null);
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payingEntryId, setPayingEntryId] = useState<string | null>(null);
+  const [payForm, setPayForm] = useState<PayFormState>(INITIAL_PAY_FORM);
+  const [payReceiptFile, setPayReceiptFile] = useState<File | null>(null);
 
   const [dueDateFrom, setDueDateFrom] = useState(todayInputDate());
   const [dueDateTo, setDueDateTo] = useState(todayInputDate());
@@ -145,6 +167,78 @@ export function FinancialEntriesPage() {
       overdueValue: overdue.reduce((acc, item) => acc + Number(item.amount), 0)
     };
   }, [entries]);
+
+  const paymentMethodById = useMemo(() => {
+    const map = new Map<string, PaymentMethod>();
+    for (const item of paymentMethods) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [paymentMethods]);
+
+  const isPixForm = useMemo(() => {
+    const method = paymentMethodById.get(form.paymentMethodId);
+    return Boolean(method && /pix/i.test(method.name));
+  }, [form.paymentMethodId, paymentMethodById]);
+
+  const isBoletoForm = useMemo(() => {
+    const method = paymentMethodById.get(form.paymentMethodId);
+    return Boolean(method && /boleto/i.test(method.name));
+  }, [form.paymentMethodId, paymentMethodById]);
+
+  const isPixPay = useMemo(() => {
+    const method = paymentMethodById.get(payForm.paymentMethodId);
+    return Boolean(method && /pix/i.test(method.name));
+  }, [payForm.paymentMethodId, paymentMethodById]);
+
+  const paymentMethodFormOptions = useMemo(
+    () =>
+      paymentMethods
+        .filter((item) => item.isActive || item.id === form.paymentMethodId)
+        .map((item) => ({
+          value: item.id,
+          label: item.isActive ? item.name : `${item.name} (inativo)`
+        })),
+    [form.paymentMethodId, paymentMethods]
+  );
+
+  const paymentMethodPayOptions = useMemo(
+    () =>
+      paymentMethods
+        .filter((item) => item.isActive || item.id === payForm.paymentMethodId)
+        .map((item) => ({
+          value: item.id,
+          label: item.isActive ? item.name : `${item.name} (inativo)`
+        })),
+    [payForm.paymentMethodId, paymentMethods]
+  );
+
+  const categoryFormOptions = useMemo(
+    () =>
+      categories
+        .filter((item) => item.isActive || item.id === form.categoryId)
+        .map((item) => ({
+          value: item.id,
+          label: item.isActive ? item.name : `${item.name} (inativa)`
+        })),
+    [categories, form.categoryId]
+  );
+
+  const costCenterFormOptions = useMemo(
+    () =>
+      costCenters
+        .filter((item) => item.isActive || item.id === form.costCenterId)
+        .map((item) => ({
+          value: item.id,
+          label: item.isActive ? item.name : `${item.name} (inativo)`
+        })),
+    [costCenters, form.costCenterId]
+  );
+
+  const editingEntry = useMemo(
+    () => entries.find((entry) => entry.id === editingEntryId) ?? null,
+    [editingEntryId, entries]
+  );
 
   const columns: TableProps<FinancialEntry>["columns"] = [
     {
@@ -193,6 +287,35 @@ export function FinancialEntriesPage() {
       render: (_, record) => record.paymentMethod?.name ?? "-"
     },
     {
+      title: "Chave",
+      key: "paymentKey",
+      render: (_, record) => record.paymentKey ?? "-"
+    },
+    {
+      title: "Boleto",
+      key: "bankSlipPath",
+      render: (_, record) =>
+        record.bankSlipPath ? (
+          <a href={resolveAssetUrl(record.bankSlipPath) ?? "#"} target="_blank" rel="noreferrer">
+            Ver boleto
+          </a>
+        ) : (
+          "-"
+        )
+    },
+    {
+      title: "Comprovante",
+      key: "paymentReceiptPath",
+      render: (_, record) =>
+        record.paymentReceiptPath ? (
+          <a href={resolveAssetUrl(record.paymentReceiptPath) ?? "#"} target="_blank" rel="noreferrer">
+            Ver comprovante
+          </a>
+        ) : (
+          "-"
+        )
+    },
+    {
       title: "Fixo",
       key: "fixed",
       render: (_, record) => (record.isFixed ? "Sim" : "Nao")
@@ -206,13 +329,7 @@ export function FinancialEntriesPage() {
             <AppButton
               size="small"
               onClick={() => {
-                showConfirmDialog({
-                  title: "Marcar como pago",
-                  content: "Deseja marcar este lancamento como pago?",
-                  onConfirm: async () => {
-                    await payEntry(record.id);
-                  }
-                });
+                openPay(record);
               }}
             >
               Pagar
@@ -243,14 +360,26 @@ export function FinancialEntriesPage() {
 
   async function loadLookups() {
     const [categoryResponse, costCenterResponse, paymentMethodResponse] = await Promise.all([
-      api.get<FinancialCategory[]>("/financial/settings/categories"),
-      api.get<CostCenter[]>("/financial/settings/cost-centers"),
-      api.get<PaymentMethod[]>("/financial/settings/payment-methods")
+      api.get<FinancialCategory[]>("/financial/settings/categories", {
+        params: {
+          includeUsedInactive: true
+        }
+      }),
+      api.get<CostCenter[]>("/financial/settings/cost-centers", {
+        params: {
+          includeUsedInactive: true
+        }
+      }),
+      api.get<PaymentMethod[]>("/financial/settings/payment-methods", {
+        params: {
+          includeUsedInactive: true
+        }
+      })
     ]);
 
-    setCategories(categoryResponse.data.filter((item) => item.isActive));
-    setCostCenters(costCenterResponse.data.filter((item) => item.isActive));
-    setPaymentMethods(paymentMethodResponse.data.filter((item) => item.isActive));
+    setCategories(categoryResponse.data);
+    setCostCenters(costCenterResponse.data);
+    setPaymentMethods(paymentMethodResponse.data);
   }
 
   async function loadEntries() {
@@ -295,6 +424,8 @@ export function FinancialEntriesPage() {
   function openCreate() {
     setEditingEntryId(null);
     setForm({ ...INITIAL_FORM });
+    setBankSlipFile(null);
+    setPaymentReceiptFile(null);
     setModalOpen(true);
   }
 
@@ -311,16 +442,44 @@ export function FinancialEntriesPage() {
       categoryId: entry.categoryId,
       costCenterId: entry.costCenterId ?? "",
       paymentMethodId: entry.paymentMethodId ?? "",
+      paymentKey: entry.paymentKey ?? "",
       isFixed: entry.isFixed,
       recurrenceCycle: entry.recurrenceCycle,
       recurrenceEndDate: toInputDate(entry.recurrenceEndDate)
     });
+    setBankSlipFile(null);
+    setPaymentReceiptFile(null);
     setModalOpen(true);
+  }
+
+  function openPay(entry: FinancialEntry) {
+    setPayingEntryId(entry.id);
+    setPayForm({
+      paymentDate: todayInputDate(),
+      paymentMethodId: entry.paymentMethodId ?? "",
+      paymentKey: entry.paymentKey ?? ""
+    });
+    setPayReceiptFile(null);
+    setPayModalOpen(true);
   }
 
   async function saveEntry() {
     if (!form.title.trim() || !form.amount || !form.dueDate || !form.categoryId) {
       notifyError("Financeiro", "Preencha titulo, valor, vencimento e categoria.");
+      return;
+    }
+
+    if (isPixForm && !form.paymentKey.trim()) {
+      notifyError("Financeiro", "Informe a chave para forma de pagamento PIX.");
+      return;
+    }
+
+    if (
+      isBoletoForm &&
+      !bankSlipFile &&
+      !(editingEntry && editingEntry.bankSlipPath)
+    ) {
+      notifyError("Financeiro", "Anexe o boleto para a forma de pagamento Boleto.");
       return;
     }
 
@@ -338,20 +497,47 @@ export function FinancialEntriesPage() {
         categoryId: form.categoryId,
         costCenterId: form.costCenterId || undefined,
         paymentMethodId: form.paymentMethodId || undefined,
+        paymentKey: form.paymentKey || undefined,
         isFixed: form.isFixed,
         recurrenceCycle: form.isFixed ? form.recurrenceCycle : "NONE",
         recurrenceEndDate: form.isFixed ? form.recurrenceEndDate || undefined : undefined
       };
 
+      let savedEntry: FinancialEntry;
+
       if (editingEntryId) {
-        await api.patch(`/financial/entries/${editingEntryId}`, payload);
+        const response = await api.patch<FinancialEntry>(`/financial/entries/${editingEntryId}`, payload);
+        savedEntry = response.data;
         notifySuccess("Lancamento atualizado");
       } else {
-        await api.post("/financial/entries", payload);
+        const response = await api.post<FinancialEntry>("/financial/entries", payload);
+        savedEntry = response.data;
         notifySuccess("Lancamento criado");
       }
 
+      if (bankSlipFile) {
+        const bankSlipPayload = new FormData();
+        bankSlipPayload.append("file", bankSlipFile);
+        await api.post(`/financial/entries/${savedEntry.id}/bank-slip`, bankSlipPayload, {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        });
+      }
+
+      if (paymentReceiptFile) {
+        const receiptPayload = new FormData();
+        receiptPayload.append("file", paymentReceiptFile);
+        await api.post(`/financial/entries/${savedEntry.id}/payment-receipt`, receiptPayload, {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        });
+      }
+
       setModalOpen(false);
+      setBankSlipFile(null);
+      setPaymentReceiptFile(null);
       await loadEntries();
     } catch (error) {
       const message =
@@ -364,13 +550,43 @@ export function FinancialEntriesPage() {
     }
   }
 
-  async function payEntry(id: string) {
+  async function payEntry() {
+    if (!payingEntryId) {
+      return;
+    }
+
+    if (!payForm.paymentMethodId) {
+      notifyError("Financeiro", "Selecione a forma de pagamento.");
+      return;
+    }
+
+    if (isPixPay && !payForm.paymentKey.trim()) {
+      notifyError("Financeiro", "Informe a chave PIX.");
+      return;
+    }
+
     try {
-      await api.patch(`/financial/entries/${id}/pay`, {
-        paymentDate: new Date().toISOString(),
-        paymentMethodId: paymentMethodFilter || undefined
+      await api.patch(`/financial/entries/${payingEntryId}/pay`, {
+        paymentDate: payForm.paymentDate || new Date().toISOString(),
+        paymentMethodId: payForm.paymentMethodId || undefined,
+        paymentKey: payForm.paymentKey || undefined
       });
+
+      if (payReceiptFile) {
+        const receiptPayload = new FormData();
+        receiptPayload.append("file", payReceiptFile);
+        await api.post(`/financial/entries/${payingEntryId}/payment-receipt`, receiptPayload, {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        });
+      }
+
       notifySuccess("Lancamento marcado como pago");
+      setPayModalOpen(false);
+      setPayingEntryId(null);
+      setPayReceiptFile(null);
+      setPayForm(INITIAL_PAY_FORM);
       await loadEntries();
     } catch {
       notifyError("Financeiro", "Nao foi possivel marcar lancamento como pago.");
@@ -420,7 +636,10 @@ export function FinancialEntriesPage() {
           value={categoryFilter || undefined}
           allowClear
           placeholder="Categoria"
-          options={categories.map((item) => ({ value: item.id, label: item.name }))}
+          options={categories.map((item) => ({
+            value: item.id,
+            label: item.isActive ? item.name : `${item.name} (inativa)`
+          }))}
           onChange={(value) => setCategoryFilter((value as string) || "")}
         />
 
@@ -428,7 +647,10 @@ export function FinancialEntriesPage() {
           value={costCenterFilter || undefined}
           allowClear
           placeholder="Centro de custo"
-          options={costCenters.map((item) => ({ value: item.id, label: item.name }))}
+          options={costCenters.map((item) => ({
+            value: item.id,
+            label: item.isActive ? item.name : `${item.name} (inativo)`
+          }))}
           onChange={(value) => setCostCenterFilter((value as string) || "")}
         />
 
@@ -436,7 +658,10 @@ export function FinancialEntriesPage() {
           value={paymentMethodFilter || undefined}
           allowClear
           placeholder="Forma de pagamento"
-          options={paymentMethods.map((item) => ({ value: item.id, label: item.name }))}
+          options={paymentMethods.map((item) => ({
+            value: item.id,
+            label: item.isActive ? item.name : `${item.name} (inativa)`
+          }))}
           onChange={(value) => setPaymentMethodFilter((value as string) || "")}
         />
 
@@ -476,9 +701,20 @@ export function FinancialEntriesPage() {
       <AppModal
         open={modalOpen}
         title={editingEntryId ? "Editar lancamento" : "Novo lancamento"}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false);
+          setBankSlipFile(null);
+          setPaymentReceiptFile(null);
+        }}
         footer={[
-          <AppButton key="cancel" onClick={() => setModalOpen(false)}>
+          <AppButton
+            key="cancel"
+            onClick={() => {
+              setModalOpen(false);
+              setBankSlipFile(null);
+              setPaymentReceiptFile(null);
+            }}
+          >
             Cancelar
           </AppButton>,
           <AppButton key="save" type="primary" loading={saving} onClick={() => void saveEntry()}>
@@ -528,7 +764,7 @@ export function FinancialEntriesPage() {
           <DashboardFilterSelect
             value={form.categoryId || undefined}
             placeholder="Categoria"
-            options={categories.map((item) => ({ value: item.id, label: item.name }))}
+            options={categoryFormOptions}
             onChange={(value) => setForm((prev) => ({ ...prev, categoryId: String(value) }))}
           />
 
@@ -536,7 +772,7 @@ export function FinancialEntriesPage() {
             value={form.costCenterId || undefined}
             placeholder="Centro de custo"
             allowClear
-            options={costCenters.map((item) => ({ value: item.id, label: item.name }))}
+            options={costCenterFormOptions}
             onChange={(value) => setForm((prev) => ({ ...prev, costCenterId: String(value || "") }))}
           />
 
@@ -544,9 +780,57 @@ export function FinancialEntriesPage() {
             value={form.paymentMethodId || undefined}
             placeholder="Forma de pagamento"
             allowClear
-            options={paymentMethods.map((item) => ({ value: item.id, label: item.name }))}
-            onChange={(value) => setForm((prev) => ({ ...prev, paymentMethodId: String(value || "") }))}
+            options={paymentMethodFormOptions}
+            onChange={(value) =>
+              setForm((prev) => ({
+                ...prev,
+                paymentMethodId: String(value || ""),
+                paymentKey: String(value || "") ? prev.paymentKey : ""
+              }))
+            }
           />
+
+          {isPixForm && (
+            <AppInput
+              placeholder="Chave PIX"
+              value={form.paymentKey}
+              onChange={(event) => setForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
+            />
+          )}
+
+          {isBoletoForm && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <AppFileDragger
+                value={bankSlipFile}
+                onChange={setBankSlipFile}
+                title="Anexar boleto"
+                description="Formatos aceitos: PDF, DOC ou DOCX"
+                acceptedMimeTypes={[
+                  "application/pdf",
+                  "application/msword",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                ]}
+                acceptedExtensions={[".pdf", ".doc", ".docx"]}
+              />
+            </div>
+          )}
+
+          <div style={{ gridColumn: "1 / -1" }}>
+            <AppFileDragger
+              value={paymentReceiptFile}
+              onChange={setPaymentReceiptFile}
+              title="Anexar comprovante de pagamento (opcional)"
+              description="Formatos aceitos: PDF, DOC, DOCX, PNG, JPG"
+              acceptedMimeTypes={[
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "image/png",
+                "image/jpeg"
+              ]}
+              acceptedExtensions={[".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"]}
+            />
+          </div>
 
           <label className="permission-item" style={{ gridColumn: "1 / -1" }}>
             <AppCheckbox
@@ -580,6 +864,72 @@ export function FinancialEntriesPage() {
               />
             </>
           )}
+        </div>
+      </AppModal>
+
+      <AppModal
+        open={payModalOpen}
+        title="Marcar lancamento como pago"
+        onCancel={() => {
+          setPayModalOpen(false);
+          setPayingEntryId(null);
+          setPayReceiptFile(null);
+          setPayForm(INITIAL_PAY_FORM);
+        }}
+        footer={[
+          <AppButton
+            key="cancel"
+            onClick={() => {
+              setPayModalOpen(false);
+              setPayingEntryId(null);
+              setPayReceiptFile(null);
+              setPayForm(INITIAL_PAY_FORM);
+            }}
+          >
+            Cancelar
+          </AppButton>,
+          <AppButton key="save" type="primary" onClick={() => void payEntry()}>
+            Confirmar pagamento
+          </AppButton>
+        ]}
+      >
+        <div className="form-grid">
+          <AppInput
+            type="date"
+            value={payForm.paymentDate}
+            onChange={(event) => setPayForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
+          />
+          <DashboardFilterSelect
+            value={payForm.paymentMethodId || undefined}
+            placeholder="Forma de pagamento"
+            options={paymentMethodPayOptions}
+            onChange={(value) =>
+              setPayForm((prev) => ({ ...prev, paymentMethodId: String(value || ""), paymentKey: prev.paymentKey }))
+            }
+          />
+          {isPixPay && (
+            <AppInput
+              placeholder="Chave PIX"
+              value={payForm.paymentKey}
+              onChange={(event) => setPayForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
+            />
+          )}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <AppFileDragger
+              value={payReceiptFile}
+              onChange={setPayReceiptFile}
+              title="Anexar comprovante"
+              description="Formatos aceitos: PDF, DOC, DOCX, PNG, JPG"
+              acceptedMimeTypes={[
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "image/png",
+                "image/jpeg"
+              ]}
+              acceptedExtensions={[".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"]}
+            />
+          </div>
         </div>
       </AppModal>
     </div>

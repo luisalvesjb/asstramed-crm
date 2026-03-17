@@ -3,6 +3,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware";
 import { permissionMiddleware } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../config/permissions";
 import * as financialEntriesController from "./financial-entries.controller";
+import { financialEntryFilesUpload } from "../../gateways/financial-entry-files.gateway";
 
 export const financialEntriesRoutes = Router();
 
@@ -32,4 +33,16 @@ financialEntriesRoutes.delete(
   "/:id",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
   financialEntriesController.deleteFinancialEntry
+);
+financialEntriesRoutes.post(
+  "/:id/bank-slip",
+  permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
+  financialEntryFilesUpload.single("file"),
+  financialEntriesController.uploadFinancialEntryBankSlip
+);
+financialEntriesRoutes.post(
+  "/:id/payment-receipt",
+  permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
+  financialEntryFilesUpload.single("file"),
+  financialEntriesController.uploadFinancialEntryPaymentReceipt
 );
