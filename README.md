@@ -162,7 +162,6 @@ Modulos entregues:
 - `financial-settings`
 - `financial-entries`
 - `financial-reports`
-- `messages`
 
 Regras principais implementadas:
 
@@ -248,11 +247,6 @@ Recursos de frontend:
 - `POST /api/financial/entries/:id/payment-receipt`
 - `GET /api/financial/reports/daily`
 - `GET /api/financial/reports/outflow-by-day`
-- `GET /api/messages`
-- `GET /api/messages/:id/thread`
-- `POST /api/messages`
-- `POST /api/messages/:id/replies`
-- `PATCH /api/messages/:id/resolve`
 - `GET /api/feature-flags/permissions`
 - `GET/PUT /api/feature-flags/users/:userId`
 - `GET /api/profiles`
@@ -267,6 +261,9 @@ Recursos de frontend:
 - `PUT /api/companies/:id/address`
 - `PUT /api/companies/:id/personal-info`
 - `GET/POST /api/activities`
+- `GET /api/activities/interactions`
+- `GET /api/activities/:id`
+- `POST /api/activities/:id/messages`
 - `PATCH /api/activities/:id/status`
 - `GET /api/documents?companyId=...`
 - `POST /api/documents/upload`
@@ -318,3 +315,37 @@ Credenciais criadas pelo seed:
 - `gestor@asstramed.com` / `123456`
 - `tecnico@asstramed.com` / `123456`
 - `financeiro@asstramed.com` / `123456`
+
+## Atualizacao 2026-03-17 (Atividades)
+
+- Conversa interna agora pertence a `atividade` (nao ha mais modulo funcional de mensagens separado no fluxo principal).
+- Regra de status da atividade:
+  - somente o `criador` ou o `responsavel` da atividade pode alterar status.
+- Dashboard e tela de atividades:
+  - acao principal da lista passou para `Detalhes`.
+  - no detalhe existe seletor de status e conversa da atividade.
+- Prioridade adicionada na criacao de atividade (ALTA/MEDIA/BAIXA).
+- Labels adicionadas acima dos campos do fluxo de atividades (sem dependencia de placeholder).
+- Novo `.env` local do web configurado para desenvolvimento:
+  - `VITE_API_URL=\"http://localhost:3333/api\"`
+
+## Atualizacao 2026-03-18 (correcao do fluxo de atividade)
+
+- `Detalhes da atividade` deixou de ser modal e passou a ser tela normal (`/atividades/:id`).
+- Comentarios/mensagens agora sao interacoes da propria atividade:
+  - todos os usuarios autenticados podem visualizar e comentar
+  - ordem cronologica da mais antiga para a mais recente
+  - sem rota de exclusao dessas mensagens
+- Alteracao de status movida para o detalhe da atividade (seletor acima da secao de comentarios).
+- Regra de alteracao de status mantida no backend:
+  - apenas criador da atividade ou usuario direcionado (`assignedTo`) podem alterar.
+- Listagens de atividades (dashboard, tela de atividades e empresa):
+  - acao principal `Detalhes`
+  - sem botoes de status na listagem principal.
+- Campo exibido como `Direcionado a` no lugar de `Responsavel` no contexto de atividades.
+- Dashboard atualizado com destaque de interacoes:
+  - bloco `5 ultimas mensagens da empresa`
+  - botao `Ver tudo`
+  - indicador quando existir atividade aberta com prioridade alta.
+- Modal `Nova tarefa` reorganizado em grid com labels acima de cada campo.
+- Fluxo de atividades/Comentarios sem dependencia de permissao por feature flag (somente autenticacao + regra de status).

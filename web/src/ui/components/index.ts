@@ -13,3 +13,4 @@ export * from "./AppPagination";
 export * from "./AppDateTimePicker";
 export * from "./AppFileDragger";
 export * from "./KpiStatCard";
+export * from "./InlineDateNavigator";

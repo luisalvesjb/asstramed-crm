@@ -6,9 +6,17 @@ import {
   setUserPermissions
 } from "../../services/permission.service";
 import { registerAuditLog } from "../../services/audit.service";
+import { ALL_PERMISSION_KEYS } from "../../config/permissions";
 
 export async function listPermissions() {
-  return prisma.permission.findMany({ orderBy: { key: "asc" } });
+  return prisma.permission.findMany({
+    where: {
+      key: {
+        in: ALL_PERMISSION_KEYS
+      }
+    },
+    orderBy: { key: "asc" }
+  });
 }
 
 export async function getUserPermissions(userId: string) {

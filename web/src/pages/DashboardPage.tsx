@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Input, TableProps } from "antd";
-import dayjs from "dayjs";
-import { PERMISSIONS } from "../constants/permissions";
+import { TableProps } from "antd";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -15,34 +14,31 @@ import {
   resetDashboardFilters,
   setDashboardFilters,
   setDashboardPage,
-  setDashboardPageSize,
-  updateDashboardActivityStatus
+  setDashboardPageSize
 } from "../store/slices/dashboardSlice";
-import { Activity, ActivityStatus, CompanyMessage, CompanyMessageThread, MessagePriority } from "../types/api";
+import { Activity, ActivityInteraction, ActivityStatus, MessagePriority } from "../types/api";
 import {
   AppBadge,
   AppButton,
-  AppDateTimePicker,
   AppInput,
-  AppModal,
-  KpiStatCard,
   AppPagination,
   AppTable,
   AppTag,
-  DashboardFilterSelect
+  DashboardFilterSelect,
+  KpiStatCard
 } from "../ui/components";
-import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
-import { formatDate, statusLabel } from "../utils/format";
+import { notifyError, notifySuccess } from "../ui/feedback/notifications";
+import { formatDate, formatDateTime, statusLabel } from "../utils/format";
 import { NewTaskModal } from "../features/dashboard/components/NewTaskModal";
 import { resolveCompanyLogoUrl } from "../store/slices/companyDetailsSlice";
 
-function messagePriorityLabel(priority: MessagePriority): string {
+function priorityLabel(priority: MessagePriority): string {
   if (priority === "ALTA") return "Alta";
   if (priority === "MEDIA") return "Media";
   return "Baixa";
 }
 
-function messagePriorityColor(priority: MessagePriority): "red" | "orange" | "blue" {
+function priorityColor(priority: MessagePriority): "red" | "orange" | "blue" {
   if (priority === "ALTA") return "red";
   if (priority === "MEDIA") return "orange";
   return "blue";
@@ -55,38 +51,28 @@ function companyCodeLabel(code?: number): string {
 
 export function DashboardPage() {
   const dispatch = useAppDispatch();
-  const { hasPermission, selectedCompanyId, user, setCompanySelection } = useAuth();
+  const navigate = useNavigate();
+  const { selectedCompanyId, setCompanySelection, user } = useAuth();
 
   const {
     filters,
     loading,
     error,
     kpis,
-    messages,
+    activityInsights,
     activities,
     companies,
     users,
     modalOpen,
     createLoading,
-    actionLoadingById,
     page,
     pageSize
   } = useAppSelector((state) => state.dashboard);
   const topbarCompanies = useAppSelector((state) => state.auth.topbarCompanies);
-  const [messageModalOpen, setMessageModalOpen] = useState(false);
-  const [allMessagesLoading, setAllMessagesLoading] = useState(false);
-  const [allMessages, setAllMessages] = useState<CompanyMessage[]>([]);
-  const [threadModalOpen, setThreadModalOpen] = useState(false);
-  const [threadLoading, setThreadLoading] = useState(false);
-  const [thread, setThread] = useState<CompanyMessageThread | null>(null);
-  const [createMessageModalOpen, setCreateMessageModalOpen] = useState(false);
-  const [messageContent, setMessageContent] = useState("");
-  const [messagePriority, setMessagePriority] = useState<MessagePriority>("MEDIA");
-  const [messageDirectedToId, setMessageDirectedToId] = useState("");
-  const [messageSaving, setMessageSaving] = useState(false);
-  const [replyContent, setReplyContent] = useState("");
-  const [replySaving, setReplySaving] = useState(false);
-  const [resolvingMessage, setResolvingMessage] = useState(false);
+
+  const [interactionsExpanded, setInteractionsExpanded] = useState(false);
+  const [interactionsLoading, setInteractionsLoading] = useState(false);
+  const [allInteractions, setAllInteractions] = useState<ActivityInteraction[]>([]);
 
   const userOptions = useMemo(() => {
     if (users.length) return users;
@@ -115,6 +101,11 @@ export function DashboardPage() {
     }
   }, [dispatch, error]);
 
+  useEffect(() => {
+    setAllInteractions(activityInsights.recentMessages);
+    setInteractionsExpanded(false);
+  }, [activityInsights.recentMessages, filters.companyId]);
+
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * pageSize;
     return activities.slice(start, start + pageSize);
@@ -137,6 +128,16 @@ export function DashboardPage() {
   }, [companies, topbarCompanies]);
 
   const selectedCompanyLogoUrl = resolveCompanyLogoUrl(selectedCompany?.logoPath);
+  const activeCompanyId = selectedCompanyId || filters.companyId || "";
+  const interactionsTitle = activeCompanyId ? "Ultimas mensagens da empresa" : "Ultimas mensagens gerais";
+  const interactionsSubtitle = activeCompanyId
+    ? "Comentarios mais recentes da empresa selecionada"
+    : "Comentarios mais recentes de todas as empresas";
+
+  const interactionRows = useMemo(
+    () => (interactionsExpanded ? allInteractions : allInteractions.slice(0, 5)),
+    [allInteractions, interactionsExpanded]
+  );
 
   const columns: TableProps<Activity>["columns"] = [
     {
@@ -162,6 +163,11 @@ export function DashboardPage() {
       }
     },
     {
+      title: "Prioridade",
+      key: "priority",
+      render: (_, record) => <AppTag color={priorityColor(record.priority)}>{priorityLabel(record.priority)}</AppTag>
+    },
+    {
       title: "Empresa",
       key: "company",
       render: (_, record) => record.company.name
@@ -177,7 +183,7 @@ export function DashboardPage() {
       )
     },
     {
-      title: "Responsavel",
+      title: "Direcionado a",
       key: "responsible",
       render: (_, record) => record.assignedTo.name
     },
@@ -204,37 +210,11 @@ export function DashboardPage() {
     {
       title: "Acoes",
       key: "actions",
-      render: (_, record) => {
-        const loadingAction = Boolean(actionLoadingById[record.id]);
-
-        if (!hasPermission(PERMISSIONS.ACTIVITIES_FINISH)) {
-          return "-";
-        }
-
-        if (record.status === "CONCLUIDA") {
-          return <AppTag color="green">Concluida</AppTag>;
-        }
-
-        return (
-          <AppButton
-            loading={loadingAction}
-            onClick={() => {
-              showConfirmDialog({
-                title: "Concluir atividade",
-                content: "Deseja marcar esta atividade como concluida?",
-                onConfirm: async () => {
-                  await dispatch(
-                    updateDashboardActivityStatus({ id: record.id, status: "CONCLUIDA" })
-                  ).unwrap();
-                  notifySuccess("Atividade concluida");
-                }
-              });
-            }}
-          >
-            Concluir
-          </AppButton>
-        );
-      }
+      render: (_, record) => (
+        <AppButton size="small" onClick={() => navigate(`/atividades/${record.id}`)}>
+          Detalhes
+        </AppButton>
+      )
     }
   ];
 
@@ -245,6 +225,7 @@ export function DashboardPage() {
     activityHtml: string;
     tags: string[];
     status: ActivityStatus;
+    priority: MessagePriority;
   }) {
     await dispatch(createDashboardTask(payload)).unwrap();
     notifySuccess("Nova tarefa criada com sucesso");
@@ -253,128 +234,29 @@ export function DashboardPage() {
   function handleLeaveCompany() {
     setCompanySelection(null);
     dispatch(setDashboardFilters({ companyId: "" }));
+    void dispatch(fetchDashboardData());
   }
 
-  async function loadAllMessages() {
-    setAllMessagesLoading(true);
+  async function toggleInteractions() {
+    if (interactionsExpanded) {
+      setInteractionsExpanded(false);
+      return;
+    }
 
+    setInteractionsLoading(true);
     try {
-      const response = await api.get<CompanyMessage[]>("/messages", {
+      const response = await api.get<ActivityInteraction[]>("/activities/interactions", {
         params: {
-          companyId: filters.companyId || undefined,
-          includeResolved: true
+          companyId: activeCompanyId || undefined,
+          take: 100
         }
       });
-      setAllMessages(response.data);
+      setAllInteractions(response.data);
+      setInteractionsExpanded(true);
     } catch {
-      notifyError("Mensagens", "Nao foi possivel carregar mensagens.");
-      setAllMessages([]);
+      notifyError("Atividades", "Nao foi possivel carregar todas as interacoes.");
     } finally {
-      setAllMessagesLoading(false);
-    }
-  }
-
-  async function openMessageThread(messageId: string) {
-    setThreadModalOpen(true);
-    setThreadLoading(true);
-
-    try {
-      const response = await api.get<CompanyMessageThread>(`/messages/${messageId}/thread`);
-      setThread(response.data);
-    } catch {
-      notifyError("Mensagens", "Nao foi possivel abrir a conversa.");
-      setThread(null);
-      setThreadModalOpen(false);
-    } finally {
-      setThreadLoading(false);
-    }
-  }
-
-  async function submitMessage() {
-    const companyId = selectedCompanyId || filters.companyId;
-
-    if (!companyId) {
-      notifyError("Mensagens", "Selecione uma empresa para cadastrar a mensagem.");
-      return;
-    }
-
-    if (!messageContent.trim()) {
-      notifyError("Mensagens", "Informe a mensagem.");
-      return;
-    }
-
-    setMessageSaving(true);
-
-    try {
-      await api.post("/messages", {
-        companyId,
-        content: messageContent.trim(),
-        priority: messagePriority,
-        directedToId: messageDirectedToId || undefined
-      });
-
-      notifySuccess("Mensagem cadastrada");
-      setMessageContent("");
-      setMessagePriority("MEDIA");
-      setMessageDirectedToId("");
-      setCreateMessageModalOpen(false);
-
-      await dispatch(fetchDashboardData()).unwrap();
-
-      if (messageModalOpen) {
-        await loadAllMessages();
-      }
-    } catch {
-      notifyError("Mensagens", "Nao foi possivel cadastrar mensagem.");
-    } finally {
-      setMessageSaving(false);
-    }
-  }
-
-  async function submitReply() {
-    if (!thread?.root.id || !replyContent.trim()) {
-      return;
-    }
-
-    setReplySaving(true);
-
-    try {
-      await api.post(`/messages/${thread.root.id}/replies`, {
-        content: replyContent.trim()
-      });
-
-      setReplyContent("");
-      await openMessageThread(thread.root.id);
-      await dispatch(fetchDashboardData()).unwrap();
-      if (messageModalOpen) {
-        await loadAllMessages();
-      }
-    } catch {
-      notifyError("Mensagens", "Nao foi possivel enviar resposta.");
-    } finally {
-      setReplySaving(false);
-    }
-  }
-
-  async function resolveCurrentMessage() {
-    if (!thread?.root.id) {
-      return;
-    }
-
-    setResolvingMessage(true);
-
-    try {
-      await api.patch(`/messages/${thread.root.id}/resolve`);
-      notifySuccess("Mensagem resolvida");
-      await openMessageThread(thread.root.id);
-      await dispatch(fetchDashboardData()).unwrap();
-      if (messageModalOpen) {
-        await loadAllMessages();
-      }
-    } catch {
-      notifyError("Mensagens", "Nao foi possivel resolver a mensagem.");
-    } finally {
-      setResolvingMessage(false);
+      setInteractionsLoading(false);
     }
   }
 
@@ -383,11 +265,9 @@ export function DashboardPage() {
       <div className="page-header">
         <h1>Atividades</h1>
         <div className="filters-actions">
-          {hasPermission(PERMISSIONS.ACTIVITIES_CREATE) && (
-            <AppButton type="primary" onClick={() => dispatch(openTaskModal())}>
-              Nova tarefa
-            </AppButton>
-          )}
+          <AppButton type="primary" onClick={() => dispatch(openTaskModal())}>
+            Nova tarefa
+          </AppButton>
         </div>
       </div>
       <p className="subtitle">Hoje - Pendentes</p>
@@ -411,7 +291,8 @@ export function DashboardPage() {
             )}
             <div>
               <strong>
-                {selectedCompany.name} <span className="company-code-chip">#{companyCodeLabel(selectedCompany.code)}</span>
+                {selectedCompany.name}{" "}
+                <span className="company-code-chip">#{companyCodeLabel(selectedCompany.code)}</span>
               </strong>
               <small>{selectedCompany.personalResponsible || "Sem responsavel cadastrado"}</small>
             </div>
@@ -425,152 +306,107 @@ export function DashboardPage() {
       )}
 
       <div className="asstramed-kpi-grid">
-        <KpiStatCard
-          title="Resolvidos"
-          value={String(kpis.resolved)}
-          tone="positive"
-          icon="check"
-        />
-        <KpiStatCard
-          title="Nao Resolvidos"
-          value={String(kpis.unresolved)}
-          tone="negative"
-          icon="warning"
-        />
-        <KpiStatCard
-          title="Total Abertos"
-          value={String(kpis.totalOpen)}
-          tone="neutral"
-          icon="list"
-        />
+        <KpiStatCard title="Resolvidos" value={String(kpis.resolved)} tone="positive" icon="check" />
+        <KpiStatCard title="Nao Resolvidos" value={String(kpis.unresolved)} tone="negative" icon="warning" />
+        <KpiStatCard title="Total Abertos" value={String(kpis.totalOpen)} tone="neutral" icon="list" />
       </div>
 
-      {hasPermission(PERMISSIONS.MESSAGES_READ) && (
-        <section className="dashboard-messages-card card">
-          <div className="messages-header">
-            <div>
-              <h3>Mensagens</h3>
-              <p className="subtitle">
-                {filters.companyId ? "Mensagens da empresa selecionada" : "Visao geral de mensagens por empresa"}
-              </p>
-            </div>
-            <div className="filters-actions">
-              {hasPermission(PERMISSIONS.MESSAGES_WRITE) && (
-                <AppButton type="primary" onClick={() => setCreateMessageModalOpen(true)}>
-                  Nova mensagem
-                </AppButton>
-              )}
-              <AppButton
-                onClick={async () => {
-                  setMessageModalOpen(true);
-                  await loadAllMessages();
-                }}
-              >
-                Ver todas
-              </AppButton>
-            </div>
+      <section className="dashboard-messages-card card">
+        <div className="messages-header">
+          <div>
+            <h3>{interactionsTitle}</h3>
+            <p className="subtitle">{interactionsSubtitle}</p>
           </div>
-
-          <div className="messages-priority-kpis">
-            <KpiStatCard
-              title="Alta (abertas)"
-              value={String(messages.openByPriority.alta)}
-              tone="negative"
-              icon="warning"
-            />
-            <KpiStatCard
-              title="Media (abertas)"
-              value={String(messages.openByPriority.media)}
-              tone="neutral"
-              icon="clock"
-            />
-            <KpiStatCard
-              title="Baixa (abertas)"
-              value={String(messages.openByPriority.baixa)}
-              tone="positive"
-              icon="check"
-            />
+          <div className="filters-actions">
+            <AppButton loading={interactionsLoading} onClick={() => void toggleInteractions()}>
+              {interactionsExpanded ? "Ver apenas 5" : "Ver tudo"}
+            </AppButton>
           </div>
+        </div>
 
-          <div className="messages-highlight-list">
-            {messages.highlighted.length === 0 ? (
-              <span>Nenhuma mensagem para destacar.</span>
-            ) : (
-              messages.highlighted.map((message) => (
-                <div key={message.id} className="message-highlight-item">
-                  <div className="message-highlight-main">
-                    <div className="filters-actions">
-                      <AppTag color={messagePriorityColor(message.priority)}>
-                        {messagePriorityLabel(message.priority)}
-                      </AppTag>
-                      {!message.resolvedAt && <AppTag color="processing">Em aberto</AppTag>}
-                    </div>
-                    <strong>{message.company.name}</strong>
-                    <p>{message.content}</p>
-                    <small>
-                      Cadastrado por {message.createdBy.name}
-                      {message.directedTo ? ` • Direcionado para ${message.directedTo.name}` : ""}
-                      {" • "}
-                      {formatDate(message.createdAt)}
-                    </small>
+        <div className="messages-priority-summary">
+          {activityInsights.hasOpenHighPriority ? (
+            <AppTag color="red">Existe atividade em aberto com prioridade alta</AppTag>
+          ) : (
+            <span className="subtitle">Sem mensagens prioritarias</span>
+          )}
+        </div>
+
+        <div className="messages-highlight-list">
+          {interactionRows.length === 0 ? (
+            <span>Sem mensagens do dia.</span>
+          ) : (
+            interactionRows.map((interaction) => (
+              <div key={interaction.id} className="message-highlight-item">
+                <div className="message-highlight-main">
+                  <div className="filters-actions">
+                    <AppTag color={priorityColor(interaction.activity.priority)}>
+                      {priorityLabel(interaction.activity.priority)}
+                    </AppTag>
+                    <AppTag color={interaction.activity.status === "CONCLUIDA" ? "green" : "processing"}>
+                      {statusLabel(interaction.activity.status)}
+                    </AppTag>
                   </div>
-                  <AppButton onClick={() => void openMessageThread(message.id)}>Ver</AppButton>
+                  <strong>
+                    {interaction.activity.company.name} • {interaction.activity.title}
+                  </strong>
+                  <p>{interaction.content}</p>
+                  <small>
+                    Direcionado a {interaction.activity.assignedTo.name}
+                    {` • Por ${interaction.createdBy.name}`}
+                    {` • ${formatDateTime(interaction.createdAt)}`}
+                  </small>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
-      )}
+                <AppButton onClick={() => navigate(`/atividades/${interaction.activity.id}`)}>Detalhes</AppButton>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       <div className="asstramed-dashboard-filters">
-        <AppDateTimePicker
-          showTime={false}
-          format="DD/MM/YYYY"
-          value={filters.date ? dayjs(filters.date) : null}
-          onChange={(value) => {
-            const parsed = Array.isArray(value) ? (value[0] ?? null) : value;
-            dispatch(setDashboardFilters({ date: parsed ? parsed.format("YYYY-MM-DD") : "" }));
-          }}
-        />
+        <div className="field-block">
+          <label className="field-label">Status</label>
+          <DashboardFilterSelect
+            value={filters.status}
+            options={[
+              { label: "Pendente", value: "PENDENTE" },
+              { label: "Em execucao", value: "EM_EXECUCAO" },
+              { label: "Concluida", value: "CONCLUIDA" },
+              { label: "Cancelada", value: "CANCELADA" }
+            ]}
+            onChange={(value) => dispatch(setDashboardFilters({ status: value as ActivityStatus }))}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={filters.status}
-          options={[
-            { label: "Pendente", value: "PENDENTE" },
-            { label: "Em execucao", value: "EM_EXECUCAO" },
-            { label: "Concluida", value: "CONCLUIDA" },
-            { label: "Cancelada", value: "CANCELADA" }
-          ]}
-          onChange={(value) => dispatch(setDashboardFilters({ status: value as ActivityStatus }))}
-        />
+        <div className="field-block">
+          <label className="field-label">Empresa</label>
+          <DashboardFilterSelect
+            value={filters.companyId || undefined}
+            allowClear
+            options={companyOptions}
+            onChange={(value) => {
+              const nextCompanyId = (value as string) || "";
+              setCompanySelection(nextCompanyId || null);
+              dispatch(setDashboardFilters({ companyId: nextCompanyId }));
+            }}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={filters.companyId || undefined}
-          placeholder="Empresa: Todas"
-          allowClear
-          options={companyOptions}
-          onChange={(value) => {
-            const nextCompanyId = (value as string) || "";
-            setCompanySelection(nextCompanyId || null);
-            dispatch(setDashboardFilters({ companyId: nextCompanyId }));
-          }}
-        />
+        <div className="field-block">
+          <label className="field-label">Direcionado a</label>
+          <DashboardFilterSelect
+            value={filters.responsibleId || undefined}
+            allowClear
+            options={userOptions.map((entry) => ({ value: entry.id, label: entry.name }))}
+            onChange={(value) => dispatch(setDashboardFilters({ responsibleId: (value as string) || "" }))}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={filters.responsibleId || undefined}
-          placeholder="Responsavel: Todos"
-          allowClear
-          options={userOptions.map((entry) => ({ value: entry.id, label: entry.name }))}
-          onChange={(value) =>
-            dispatch(setDashboardFilters({ responsibleId: (value as string) || "" }))
-          }
-        />
-
-        <AppInput
-          placeholder="Tag"
-          value={filters.tagKey}
-          onChange={(event) => dispatch(setDashboardFilters({ tagKey: event.target.value }))}
-        />
+        <div className="field-block">
+          <label className="field-label">Tag</label>
+          <AppInput value={filters.tagKey} onChange={(event) => dispatch(setDashboardFilters({ tagKey: event.target.value }))} />
+        </div>
 
         <div className="filters-actions">
           <AppButton type="primary" loading={loading} onClick={() => void dispatch(fetchDashboardData())}>
@@ -615,202 +451,6 @@ export function DashboardPage() {
           }}
         />
       </div>
-
-      <AppModal
-        open={messageModalOpen}
-        title="Todas as mensagens"
-        onCancel={() => setMessageModalOpen(false)}
-        footer={[
-          <AppButton key="close" onClick={() => setMessageModalOpen(false)}>
-            Fechar
-          </AppButton>
-        ]}
-      >
-        <AppTable<CompanyMessage>
-          rowKey="id"
-          loading={allMessagesLoading}
-          pagination={false}
-          dataSource={allMessages}
-          columns={[
-            {
-              title: "Empresa",
-              key: "company",
-              render: (_, record) => `${companyCodeLabel(record.company.code)} - ${record.company.name}`
-            },
-            {
-              title: "Prioridade",
-              key: "priority",
-              render: (_, record) => (
-                <AppTag color={messagePriorityColor(record.priority)}>
-                  {messagePriorityLabel(record.priority)}
-                </AppTag>
-              )
-            },
-            {
-              title: "Mensagem",
-              key: "content",
-              render: (_, record) => record.content
-            },
-            {
-              title: "Cadastrado por",
-              key: "createdBy",
-              render: (_, record) => record.createdBy.name
-            },
-            {
-              title: "Status",
-              key: "status",
-              render: (_, record) => (record.resolvedAt ? "Resolvida" : "Em aberto")
-            },
-            {
-              title: "Acoes",
-              key: "actions",
-              render: (_, record) => (
-                <AppButton size="small" onClick={() => void openMessageThread(record.id)}>
-                  Ver
-                </AppButton>
-              )
-            }
-          ]}
-        />
-      </AppModal>
-
-      <AppModal
-        open={threadModalOpen}
-        title="Conversa da mensagem"
-        onCancel={() => {
-          setThreadModalOpen(false);
-          setThread(null);
-          setReplyContent("");
-        }}
-        footer={[
-          hasPermission(PERMISSIONS.MESSAGES_RESOLVE) &&
-          thread &&
-          !thread.root.resolvedAt ? (
-            <AppButton
-              key="resolve"
-              loading={resolvingMessage}
-              onClick={() => void resolveCurrentMessage()}
-            >
-              Resolver
-            </AppButton>
-          ) : null,
-          <AppButton
-            key="close"
-            onClick={() => {
-              setThreadModalOpen(false);
-              setThread(null);
-              setReplyContent("");
-            }}
-          >
-            Fechar
-          </AppButton>,
-          <AppButton
-            key="reply"
-            type="primary"
-            loading={replySaving}
-            disabled={!thread || Boolean(thread.root.resolvedAt)}
-            onClick={() => void submitReply()}
-          >
-            Enviar resposta
-          </AppButton>
-        ]}
-      >
-        {threadLoading || !thread ? (
-          <p>Carregando conversa...</p>
-        ) : (
-          <div className="messages-thread-container">
-            <div className="message-thread-item message-thread-item-root">
-              <div className="filters-actions">
-                <AppTag color={messagePriorityColor(thread.root.priority)}>
-                  {messagePriorityLabel(thread.root.priority)}
-                </AppTag>
-                {thread.root.resolvedAt ? <AppTag color="green">Resolvida</AppTag> : <AppTag color="processing">Em aberto</AppTag>}
-              </div>
-              <p>{thread.root.content}</p>
-              <small>
-                {thread.root.createdBy.name}
-                {thread.root.directedTo ? ` • para ${thread.root.directedTo.name}` : ""}
-                {" • "}
-                {formatDate(thread.root.createdAt)}
-              </small>
-            </div>
-
-            {thread.replies.map((reply) => (
-              <div key={reply.id} className="message-thread-item">
-                <p>{reply.content}</p>
-                <small>
-                  {reply.createdBy.name} • {formatDate(reply.createdAt)}
-                </small>
-              </div>
-            ))}
-
-            <Input.TextArea
-              rows={4}
-              value={replyContent}
-              placeholder={
-                thread.root.resolvedAt
-                  ? "Mensagem resolvida. Nao e possivel responder."
-                  : "Escreva uma resposta..."
-              }
-              disabled={Boolean(thread.root.resolvedAt)}
-              onChange={(event) => setReplyContent(event.target.value)}
-            />
-          </div>
-        )}
-      </AppModal>
-
-      <AppModal
-        open={createMessageModalOpen}
-        title="Nova mensagem"
-        onCancel={() => {
-          setCreateMessageModalOpen(false);
-          setMessageContent("");
-          setMessagePriority("MEDIA");
-          setMessageDirectedToId("");
-        }}
-        footer={[
-          <AppButton
-            key="cancel"
-            onClick={() => {
-              setCreateMessageModalOpen(false);
-              setMessageContent("");
-              setMessagePriority("MEDIA");
-              setMessageDirectedToId("");
-            }}
-          >
-            Cancelar
-          </AppButton>,
-          <AppButton key="save" type="primary" loading={messageSaving} onClick={() => void submitMessage()}>
-            Salvar mensagem
-          </AppButton>
-        ]}
-      >
-        <div className="form-grid">
-          <DashboardFilterSelect
-            value={messagePriority}
-            options={[
-              { label: "Alta", value: "ALTA" },
-              { label: "Media", value: "MEDIA" },
-              { label: "Baixa", value: "BAIXA" }
-            ]}
-            onChange={(value) => setMessagePriority(value as MessagePriority)}
-          />
-          <DashboardFilterSelect
-            value={messageDirectedToId || undefined}
-            placeholder="Direcionar para responsavel"
-            allowClear
-            options={userOptions.map((entry) => ({ value: entry.id, label: entry.name }))}
-            onChange={(value) => setMessageDirectedToId((value as string) || "")}
-          />
-          <Input.TextArea
-            rows={5}
-            style={{ gridColumn: "1 / -1" }}
-            value={messageContent}
-            placeholder="Descreva a mensagem..."
-            onChange={(event) => setMessageContent(event.target.value)}
-          />
-        </div>
-      </AppModal>
 
       <NewTaskModal
         open={modalOpen}

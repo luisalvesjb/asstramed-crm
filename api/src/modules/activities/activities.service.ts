@@ -1,4 +1,4 @@
-import { ActivityStatus, Prisma } from "@prisma/client";
+import { ActivityStatus, MessagePriority, Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../errors/app-error";
 import { registerAuditLog } from "../../services/audit.service";
@@ -64,6 +64,54 @@ export async function listActivities(filters: ListActivitiesFilters) {
   });
 }
 
+export async function listActivityInteractions(input: { companyId?: string; take?: number }) {
+  const take = input.take ?? 5;
+
+  return prisma.activityMessage.findMany({
+    where: {
+      deletedAt: null,
+      activity: input.companyId
+        ? {
+            companyId: input.companyId
+          }
+        : undefined
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      activity: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          assignedTo: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          company: {
+            select: {
+              id: true,
+              code: true,
+              name: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    take
+  });
+}
+
 async function resolveTags(tx: Prisma.TransactionClient, tagKeys: string[]) {
   if (!tagKeys.length) {
     return [] as { id: string }[];
@@ -95,6 +143,7 @@ export async function createActivity(
     companyId: string;
     title: string;
     description?: string;
+    priority: MessagePriority;
     assignedToId: string;
     dueDate?: Date;
     tagKeys: string[];
@@ -130,6 +179,7 @@ export async function createActivity(
         orderExec: (lastActivity?.orderExec ?? 0) + 1,
         title: input.title,
         description: input.description,
+        priority: input.priority,
         assignedToId: input.assignedToId,
         createdById: actorId,
         dueDate: input.dueDate,
@@ -187,6 +237,7 @@ export async function createActivity(
     payload: {
       companyId: input.companyId,
       assignedToId: input.assignedToId,
+      priority: input.priority,
       status: activity.status
     }
   });
@@ -203,6 +254,8 @@ export async function changeActivityStatus(
     where: { id: activityId },
     select: {
       id: true,
+      assignedToId: true,
+      createdById: true,
       status: true,
       completedAt: true
     }
@@ -214,6 +267,11 @@ export async function changeActivityStatus(
 
   if (activity.status === status) {
     return activity;
+  }
+
+  const canManageStatus = activity.createdById === actorId || activity.assignedToId === actorId;
+  if (!canManageStatus) {
+    throw new AppError("Somente o criador ou o responsavel da atividade pode alterar o status.", 403);
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -302,6 +360,22 @@ export async function getActivityById(activityId: string) {
           name: true
         }
       },
+      messages: {
+        where: {
+          deletedAt: null
+        },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: "asc"
+        }
+      },
       history: {
         include: {
           changedBy: {
@@ -321,4 +395,47 @@ export async function getActivityById(activityId: string) {
   }
 
   return activity;
+}
+
+export async function addActivityMessage(actorId: string, activityId: string, content: string) {
+  const activity = await prisma.activity.findUnique({
+    where: { id: activityId },
+    select: {
+      id: true,
+      companyId: true
+    }
+  });
+
+  if (!activity) {
+    throw new AppError("Atividade nao encontrada", 404);
+  }
+
+  const message = await prisma.activityMessage.create({
+    data: {
+      activityId,
+      content: content.trim(),
+      createdById: actorId
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "ACTIVITY_MESSAGE_CREATED",
+    entity: "ACTIVITY_MESSAGE",
+    entityId: message.id,
+    payload: {
+      activityId,
+      companyId: activity.companyId
+    }
+  });
+
+  return message;
 }

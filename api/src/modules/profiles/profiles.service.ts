@@ -6,6 +6,7 @@ import {
   syncPermissionCatalog,
   syncSystemProfiles
 } from "../../services/permission.service";
+import { ALL_PERMISSION_KEYS } from "../../config/permissions";
 import {
   CreateProfileInput,
   ProfileOutput,
@@ -97,6 +98,11 @@ export async function listProfiles(): Promise<ProfilesListOutput> {
   await syncSystemProfiles();
 
   const permissionsCatalog = await prisma.permission.findMany({
+    where: {
+      key: {
+        in: ALL_PERMISSION_KEYS
+      }
+    },
     orderBy: { key: "asc" },
     select: {
       id: true,

@@ -9,6 +9,8 @@ interface ListMessagesFilters {
   search?: string;
 }
 
+type MessageStatus = "ABERTA" | "RESOLVIDA";
+
 async function ensureCompanyExists(companyId: string): Promise<void> {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
@@ -321,6 +323,13 @@ export async function resolveMessage(actorId: string, messageId: string) {
     throw new AppError("Mensagem nao encontrada", 404);
   }
 
+  const canManageStatus =
+    root.createdById === actorId || (root.directedToId !== null && root.directedToId === actorId);
+
+  if (!canManageStatus) {
+    throw new AppError("Somente o criador ou o responsavel direcionado pode alterar o status.", 403);
+  }
+
   if (root.resolvedAt) {
     return root;
   }
@@ -368,4 +377,85 @@ export async function resolveMessage(actorId: string, messageId: string) {
   });
 
   return updated;
+}
+
+export async function updateMessageStatus(actorId: string, messageId: string, status: MessageStatus) {
+  if (status === "RESOLVIDA") {
+    return resolveMessage(actorId, messageId);
+  }
+
+  const current = await prisma.companyMessage.findFirst({
+    where: {
+      id: messageId,
+      deletedAt: null
+    }
+  });
+
+  if (!current) {
+    throw new AppError("Mensagem nao encontrada", 404);
+  }
+
+  const rootId = current.parentMessageId ?? current.id;
+
+  const root = await prisma.companyMessage.findFirst({
+    where: {
+      id: rootId,
+      deletedAt: null
+    }
+  });
+
+  if (!root) {
+    throw new AppError("Mensagem nao encontrada", 404);
+  }
+
+  const canManageStatus =
+    root.createdById === actorId || (root.directedToId !== null && root.directedToId === actorId);
+
+  if (!canManageStatus) {
+    throw new AppError("Somente o criador ou o responsavel direcionado pode alterar o status.", 403);
+  }
+
+  const reopened = await prisma.companyMessage.update({
+    where: { id: root.id },
+    data: {
+      resolvedAt: null,
+      resolvedById: null
+    },
+    include: {
+      company: {
+        select: {
+          id: true,
+          code: true,
+          name: true
+        }
+      },
+      createdBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      directedTo: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      resolvedBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "COMPANY_MESSAGE_REOPENED",
+    entity: "COMPANY_MESSAGE",
+    entityId: root.id
+  });
+
+  return reopened;
 }

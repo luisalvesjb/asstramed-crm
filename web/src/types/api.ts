@@ -46,6 +46,7 @@ export interface Activity {
   orderExec: number;
   title: string;
   description?: string | null;
+  priority: MessagePriority;
   status: ActivityStatus;
   assignedToId: string;
   createdById: string;
@@ -57,6 +58,10 @@ export interface Activity {
   assignedTo: ApiUser;
   createdBy: ApiUser;
   tags: Array<{ tag: Tag }>;
+  messages?: ActivityMessage[];
+  _count?: {
+    messages: number;
+  };
 }
 
 export interface DashboardResponse {
@@ -73,70 +78,57 @@ export interface DashboardResponse {
     totalOpen: number;
   };
   activities: Activity[];
-  messages: {
+  activityInsights: {
     openByPriority: {
       alta: number;
       media: number;
       baixa: number;
       total: number;
     };
-    highlighted: CompanyMessage[];
+    highlighted: Activity[];
+    hasOpenHighPriority: boolean;
+    recentMessages: ActivityInteraction[];
   };
 }
 
 export type MessagePriority = "ALTA" | "MEDIA" | "BAIXA";
 
-export interface CompanyMessage {
+export interface ActivityMessage {
   id: string;
-  companyId: string;
-  parentMessageId?: string | null;
+  activityId: string;
   content: string;
-  priority: MessagePriority;
-  directedToId?: string | null;
   createdById: string;
-  resolvedAt?: string | null;
-  resolvedById?: string | null;
   createdAt: string;
   updatedAt: string;
-  company: {
-    id: string;
-    code?: number;
-    name: string;
-  };
   createdBy: {
     id: string;
     name: string;
   };
-  directedTo?: {
-    id: string;
-    name: string;
-  } | null;
-  resolvedBy?: {
-    id: string;
-    name: string;
-  } | null;
-  _count?: {
-    replies: number;
-  };
 }
 
-export interface CompanyMessageReply {
+export interface ActivityInteraction {
   id: string;
-  companyId: string;
-  parentMessageId?: string | null;
   content: string;
-  priority: MessagePriority;
-  createdById: string;
   createdAt: string;
   createdBy: {
     id: string;
     name: string;
   };
-}
-
-export interface CompanyMessageThread {
-  root: CompanyMessage;
-  replies: CompanyMessageReply[];
+  activity: {
+    id: string;
+    title: string;
+    status: ActivityStatus;
+    priority: MessagePriority;
+    assignedTo: {
+      id: string;
+      name: string;
+    };
+    company: {
+      id: string;
+      code?: number;
+      name: string;
+    };
+  };
 }
 
 export interface Permission {

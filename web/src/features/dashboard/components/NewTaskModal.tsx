@@ -1,7 +1,7 @@
 import { Suspense, lazy, useMemo, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import { AppButton, AppDateTimePicker, AppInput, AppModal, DashboardFilterSelect } from "../../../ui/components";
-import { Company, ApiUser, ActivityStatus } from "../../../types/api";
+import { Company, ApiUser, ActivityStatus, MessagePriority } from "../../../types/api";
 import { TagsInput } from "./TagsInput";
 import "react-quill/dist/quill.snow.css";
 
@@ -21,6 +21,7 @@ interface NewTaskModalProps {
     activityHtml: string;
     tags: string[];
     status: ActivityStatus;
+    priority: MessagePriority;
   }) => Promise<void>;
 }
 
@@ -29,6 +30,12 @@ const statusOptions: Array<{ label: string; value: ActivityStatus }> = [
   { label: "Em execucao", value: "EM_EXECUCAO" },
   { label: "Concluida", value: "CONCLUIDA" },
   { label: "Cancelada", value: "CANCELADA" }
+];
+
+const priorityOptions: Array<{ label: string; value: MessagePriority }> = [
+  { label: "Alta", value: "ALTA" },
+  { label: "Media", value: "MEDIA" },
+  { label: "Baixa", value: "BAIXA" }
 ];
 
 function stripHtml(input: string): string {
@@ -47,6 +54,7 @@ export function NewTaskModal({
   const [companyId, setCompanyId] = useState(defaultCompanyId ?? "");
   const [responsibleId, setResponsibleId] = useState("");
   const [status, setStatus] = useState<ActivityStatus>("PENDENTE");
+  const [priority, setPriority] = useState<MessagePriority>("MEDIA");
   const [dueDate, setDueDate] = useState<Dayjs | null>(dayjs());
   const [activityHtml, setActivityHtml] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -64,7 +72,7 @@ export function NewTaskModal({
 
   async function handleSubmit() {
     if (!companyId || !responsibleId) {
-      setError("Selecione empresa e responsavel.");
+      setError("Selecione empresa e direcionado.");
       return;
     }
 
@@ -81,6 +89,7 @@ export function NewTaskModal({
       companyId,
       responsibleId,
       status,
+      priority,
       dueDate: dueDate?.toISOString(),
       activityHtml,
       tags
@@ -90,6 +99,7 @@ export function NewTaskModal({
     setTags([]);
     setResponsibleId("");
     setStatus("PENDENTE");
+    setPriority("MEDIA");
   }
 
   return (
@@ -108,41 +118,60 @@ export function NewTaskModal({
       ]}
     >
       <div className="form-grid">
-        <DashboardFilterSelect
-          value={companyId || undefined}
-          options={companyOptions}
-          placeholder="Empresa"
-          onChange={(value) => setCompanyId(String(value))}
-        />
+        <div className="field-block">
+          <label className="field-label">Empresa</label>
+          <DashboardFilterSelect
+            value={companyId || undefined}
+            options={companyOptions}
+            onChange={(value) => setCompanyId(String(value))}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={responsibleId || undefined}
-          options={userOptions}
-          placeholder="Responsavel"
-          onChange={(value) => setResponsibleId(String(value))}
-        />
+        <div className="field-block">
+          <label className="field-label">Direcionado a</label>
+          <DashboardFilterSelect
+            value={responsibleId || undefined}
+            options={userOptions}
+            onChange={(value) => setResponsibleId(String(value))}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={status}
-          options={statusOptions}
-          placeholder="Status"
-          onChange={(value) => setStatus(value as ActivityStatus)}
-        />
+        <div className="field-block">
+          <label className="field-label">Status</label>
+          <DashboardFilterSelect
+            value={status}
+            options={statusOptions}
+            onChange={(value) => setStatus(value as ActivityStatus)}
+          />
+        </div>
 
-        <AppDateTimePicker
-          value={dueDate}
-          onChange={(value) => setDueDate(Array.isArray(value) ? (value[0] ?? null) : value)}
-          format="DD/MM/YYYY HH:mm"
-          placeholder="Data/hora"
-        />
+        <div className="field-block">
+          <label className="field-label">Prioridade</label>
+          <DashboardFilterSelect
+            value={priority}
+            options={priorityOptions}
+            onChange={(value) => setPriority(value as MessagePriority)}
+          />
+        </div>
 
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div className="field-block">
+          <label className="field-label">Data/hora</label>
+          <AppDateTimePicker
+            value={dueDate}
+            onChange={(value) => setDueDate(Array.isArray(value) ? (value[0] ?? null) : value)}
+            format="DD/MM/YYYY HH:mm"
+          />
+        </div>
+
+        <div className="field-block field-block-full">
+          <label className="field-label">Atividade</label>
           <Suspense fallback={<div className="card">Carregando editor...</div>}>
             <ReactQuill theme="snow" value={activityHtml} onChange={setActivityHtml} />
           </Suspense>
         </div>
 
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div className="field-block field-block-full">
+          <label className="field-label">Tags</label>
           <TagsInput value={tags} onChange={setTags} />
         </div>
 

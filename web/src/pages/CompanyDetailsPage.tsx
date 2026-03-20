@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { TableProps } from "antd";
+import dayjs from "dayjs";
 import { NewTaskModal } from "../features/dashboard/components/NewTaskModal";
 import { LogoCropperModal } from "../features/company/components/LogoCropperModal";
 import { PERMISSIONS } from "../constants/permissions";
@@ -33,6 +34,7 @@ import {
   setActivitiesPage,
   setActivitiesPageSize,
   setAddressForm,
+  setCompanyDetailsDate,
   setCompanyDetailsTab,
   setCompanyId,
   setContactForm,
@@ -47,7 +49,6 @@ import {
   setDocumentsPage,
   setDocumentsPageSize,
   setPersonalInfoForm,
-  updateCompanyActivityStatus,
   uploadCompanyDocument
 } from "../store/slices/companyDetailsSlice";
 import { Activity, CompanyContact, Contract, DocumentItem } from "../types/api";
@@ -55,6 +56,7 @@ import {
   AppButton,
   AppFileDragger,
   AppInput,
+  InlineDateNavigator,
   AppModal,
   AppPagination,
   KpiStatCard,
@@ -77,18 +79,29 @@ const ACCEPTED_DOCUMENT_EXTENSIONS = [".pdf", ".doc", ".docx"];
 const ACCEPTED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const ACCEPTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 
+function isSameCalendarDay(value: string | Date | null | undefined, selectedDate: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return dayjs(value).format("YYYY-MM-DD") === selectedDate;
+}
+
 export function CompanyDetailsPage() {
+  const navigate = useNavigate();
   const { id } = useParams();
   const dispatch = useAppDispatch();
   const { hasPermission, user } = useAuth();
 
   const {
     tab,
+    selectedDate,
     loading,
     saving,
     error,
     company,
     activities,
+    kpis,
     users,
     contactForm,
     addressForm,
@@ -136,8 +149,8 @@ export function CompanyDetailsPage() {
     }
 
     dispatch(setCompanyId(id));
-    void dispatch(fetchCompanyDetails({ companyId: id, canReadUsers }));
-  }, [dispatch, id, canReadUsers]);
+    void dispatch(fetchCompanyDetails({ companyId: id, canReadUsers, date: selectedDate }));
+  }, [dispatch, id, canReadUsers, selectedDate]);
 
   useEffect(() => {
     if (error) {
@@ -154,21 +167,33 @@ export function CompanyDetailsPage() {
   const contacts = company?.contacts ?? [];
   const documents = company?.documents ?? [];
   const contracts = company?.contracts ?? [];
+  const filteredContacts = useMemo(
+    () => contacts.filter((item) => isSameCalendarDay(item.createdAt, selectedDate)),
+    [contacts, selectedDate]
+  );
+  const filteredDocuments = useMemo(
+    () => documents.filter((item) => isSameCalendarDay(item.createdAt, selectedDate)),
+    [documents, selectedDate]
+  );
+  const filteredContracts = useMemo(
+    () => contracts.filter((item) => isSameCalendarDay(item.createdAt, selectedDate)),
+    [contracts, selectedDate]
+  );
 
   const pagedContacts = useMemo(() => {
     const start = (contactsPage - 1) * contactsPageSize;
-    return contacts.slice(start, start + contactsPageSize);
-  }, [contacts, contactsPage, contactsPageSize]);
+    return filteredContacts.slice(start, start + contactsPageSize);
+  }, [filteredContacts, contactsPage, contactsPageSize]);
 
   const pagedDocuments = useMemo(() => {
     const start = (documentsPage - 1) * documentsPageSize;
-    return documents.slice(start, start + documentsPageSize);
-  }, [documents, documentsPage, documentsPageSize]);
+    return filteredDocuments.slice(start, start + documentsPageSize);
+  }, [filteredDocuments, documentsPage, documentsPageSize]);
 
   const pagedContracts = useMemo(() => {
     const start = (contractsPage - 1) * contractsPageSize;
-    return contracts.slice(start, start + contractsPageSize);
-  }, [contracts, contractsPage, contractsPageSize]);
+    return filteredContracts.slice(start, start + contractsPageSize);
+  }, [filteredContracts, contractsPage, contractsPageSize]);
 
   const activitiesColumns: TableProps<Activity>["columns"] = [
     { title: "Ordem", dataIndex: "orderExec", key: "orderExec", width: 80 },
@@ -188,7 +213,7 @@ export function CompanyDetailsPage() {
       }
     },
     { title: "Atividade", key: "title", render: (_, record) => record.title },
-    { title: "Responsavel", key: "responsavel", render: (_, record) => record.assignedTo.name },
+    { title: "Direcionado a", key: "responsavel", render: (_, record) => record.assignedTo.name },
     {
       title: "Atualizada em",
       key: "updatedAt",
@@ -197,45 +222,11 @@ export function CompanyDetailsPage() {
     {
       title: "Acoes",
       key: "acoes",
-      render: (_, record) => {
-        if (!hasPermission(PERMISSIONS.ACTIVITIES_FINISH)) {
-          return "-";
-        }
-
-        return (
-          <div className="status-actions">
-            {record.status !== "EM_EXECUCAO" && (
-              <AppButton
-                size="small"
-                onClick={() =>
-                  void dispatch(updateCompanyActivityStatus({ id: record.id, status: "EM_EXECUCAO" }))
-                }
-              >
-                Em execucao
-              </AppButton>
-            )}
-            {record.status !== "CONCLUIDA" && (
-              <AppButton
-                size="small"
-                onClick={() => {
-                  showConfirmDialog({
-                    title: "Concluir atividade",
-                    content: "Deseja concluir esta atividade?",
-                    onConfirm: async () => {
-                      await dispatch(
-                        updateCompanyActivityStatus({ id: record.id, status: "CONCLUIDA" })
-                      ).unwrap();
-                      notifySuccess("Atividade concluida");
-                    }
-                  });
-                }}
-              >
-                Concluir
-              </AppButton>
-            )}
-          </div>
-        );
-      }
+      render: (_, record) => (
+        <AppButton size="small" onClick={() => navigate(`/atividades/${record.id}`)}>
+          Detalhes
+        </AppButton>
+      )
     }
   ];
 
@@ -320,31 +311,36 @@ export function CompanyDetailsPage() {
             <p className="subtitle">{company.personalResponsible ?? "Sem responsavel cadastrado"}</p>
           </div>
         </div>
-        {hasPermission(PERMISSIONS.ACTIVITIES_CREATE) && (
-          <AppButton type="primary" onClick={() => dispatch(openCompanyTaskModal())}>
-            Nova tarefa
-          </AppButton>
-        )}
+        <AppButton type="primary" onClick={() => dispatch(openCompanyTaskModal())}>
+          Nova tarefa
+        </AppButton>
+      </div>
+
+      <div className="company-date-filter-row">
+        <InlineDateNavigator
+          value={selectedDate}
+          onChange={(nextValue) => dispatch(setCompanyDetailsDate(nextValue))}
+        />
       </div>
 
       <div className="asstramed-kpi-grid">
         <KpiStatCard
-          title="Atividades Pendentes"
-          value={String(activities.filter((item) => item.status === "PENDENTE").length)}
+          title="Resolvidos"
+          value={String(kpis.resolved)}
           tone="positive"
-          icon="clock"
+          icon="check"
         />
         <KpiStatCard
-          title="Ultima Atividade"
-          value={activities[0]?.updatedAt ? formatDate(activities[0].updatedAt) : "-"}
+          title="Nao Resolvidos"
+          value={String(kpis.unresolved)}
+          tone="negative"
+          icon="warning"
+        />
+        <KpiStatCard
+          title="Total Abertos"
+          value={String(kpis.totalOpen)}
           tone="neutral"
-          icon="activity"
-        />
-        <KpiStatCard
-          title="Valor do Contrato"
-          value={canReadContractValues ? formatCurrency(company.contracts[0]?.value) : "Sem permissao"}
-          tone="positive"
-          icon="money"
+          icon="list"
         />
       </div>
 
@@ -407,7 +403,7 @@ export function CompanyDetailsPage() {
             <AppPagination
               current={contactsPage}
               pageSize={contactsPageSize}
-              total={contacts.length}
+              total={filteredContacts.length}
               showSizeChanger
               onChange={(nextPage, nextSize) => {
                 dispatch(setContactsPage(nextPage));
@@ -469,7 +465,7 @@ export function CompanyDetailsPage() {
                 <AppPagination
                   current={documentsPage}
                   pageSize={documentsPageSize}
-                  total={documents.length}
+                  total={filteredDocuments.length}
                   showSizeChanger
                   onChange={(nextPage, nextSize) => {
                     dispatch(setDocumentsPage(nextPage));
@@ -509,7 +505,7 @@ export function CompanyDetailsPage() {
                 <AppPagination
                   current={contractsPage}
                   pageSize={contractsPageSize}
-                  total={contracts.length}
+                  total={filteredContracts.length}
                   showSizeChanger
                   onChange={(nextPage, nextSize) => {
                     dispatch(setContractsPage(nextPage));

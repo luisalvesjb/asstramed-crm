@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { api } from "../../services/api";
-import { Activity, ActivityStatus, ApiUser, CompanyDetails, DocumentItem } from "../../types/api";
+import { Activity, ActivityStatus, ApiUser, CompanyDetails, DocumentItem, MessagePriority } from "../../types/api";
 import { resolveAssetUrl } from "../../utils/asset-url";
 
 export type CompanyDetailsTab =
@@ -52,6 +52,7 @@ interface NewTaskPayload {
   activityHtml: string;
   tags: string[];
   status: ActivityStatus;
+  priority: MessagePriority;
 }
 
 interface SavePersonalInfoPayload {
@@ -62,12 +63,18 @@ interface SavePersonalInfoPayload {
 interface CompanyDetailsState {
   companyId: string | null;
   tab: CompanyDetailsTab;
+  selectedDate: string;
   loading: boolean;
   saving: boolean;
   error: string | null;
 
   company: CompanyDetails | null;
   activities: Activity[];
+  kpis: {
+    resolved: number;
+    unresolved: number;
+    totalOpen: number;
+  };
   users: ApiUser[];
 
   contactForm: ContactForm;
@@ -132,12 +139,18 @@ const initialPersonalInfoForm: PersonalInfoForm = {
 const initialState: CompanyDetailsState = {
   companyId: null,
   tab: "activities",
+  selectedDate: new Date().toISOString().slice(0, 10),
   loading: false,
   saving: false,
   error: null,
 
   company: null,
   activities: [],
+  kpis: {
+    resolved: 0,
+    unresolved: 0,
+    totalOpen: 0
+  },
   users: [],
 
   contactForm: initialContactForm,
@@ -178,23 +191,44 @@ export function resolveCompanyLogoUrl(logoPath?: string | null): string | null {
 }
 
 export const fetchCompanyDetails = createAsyncThunk<
-  { company: CompanyDetails; activities: Activity[]; users: ApiUser[] },
-  { companyId: string; canReadUsers: boolean },
+  {
+    company: CompanyDetails;
+    activities: Activity[];
+    users: ApiUser[];
+    kpis: {
+      resolved: number;
+      unresolved: number;
+      totalOpen: number;
+    };
+  },
+  { companyId: string; canReadUsers: boolean; date?: string },
   { rejectValue: string }
->("companyDetails/fetchCompanyDetails", async ({ companyId, canReadUsers }, { rejectWithValue }) => {
+>("companyDetails/fetchCompanyDetails", async ({ companyId, canReadUsers, date }, { rejectWithValue }) => {
   try {
     const [companyResponse, activitiesResponse, usersResponse] = await Promise.all([
       api.get<CompanyDetails>(`/companies/${companyId}`),
-      api.get<Activity[]>("/activities", { params: { companyId } }),
+      api.get<Activity[]>("/activities", { params: { companyId, date: date || undefined } }),
       canReadUsers
         ? api.get<ApiUser[]>("/users").catch(() => ({ data: [] as ApiUser[] }))
         : Promise.resolve({ data: [] as ApiUser[] })
     ]);
 
+    const activities = activitiesResponse.data;
+    const resolved = activities.filter((item) => item.status === "CONCLUIDA").length;
+    const unresolved = activities.filter((item) => item.status !== "CONCLUIDA").length;
+    const totalOpen = activities.filter(
+      (item) => item.status === "PENDENTE" || item.status === "EM_EXECUCAO"
+    ).length;
+
     return {
       company: companyResponse.data,
-      activities: activitiesResponse.data,
-      users: usersResponse.data
+      activities,
+      users: usersResponse.data,
+      kpis: {
+        resolved,
+        unresolved,
+        totalOpen
+      }
     };
   } catch {
     return rejectWithValue("Falha ao carregar dados da empresa.");
@@ -220,6 +254,7 @@ export const createCompanyTask = createAsyncThunk<
       dueDate: payload.dueDate,
       title,
       description: payload.activityHtml,
+      priority: payload.priority,
       tagKeys: payload.tags
     });
 
@@ -235,7 +270,13 @@ export const createCompanyTask = createAsyncThunk<
       return;
     }
 
-    await dispatch(fetchCompanyDetails({ companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId,
+        canReadUsers: true,
+        date: getState().companyDetails.selectedDate
+      })
+    ).unwrap();
   } catch {
     return rejectWithValue("Nao foi possivel criar atividade.");
   }
@@ -255,7 +296,13 @@ export const updateCompanyActivityStatus = createAsyncThunk<
       return;
     }
 
-    await dispatch(fetchCompanyDetails({ companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId,
+        canReadUsers: true,
+        date: getState().companyDetails.selectedDate
+      })
+    ).unwrap();
   } catch {
     return rejectWithValue("Nao foi possivel atualizar status da atividade.");
   }
@@ -280,7 +327,13 @@ export const createCompanyContact = createAsyncThunk<
       email: state.contactForm.email.trim() || undefined
     });
 
-    await dispatch(fetchCompanyDetails({ companyId: state.companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId: state.companyId,
+        canReadUsers: true,
+        date: state.selectedDate
+      })
+    ).unwrap();
     dispatch(resetContactForm());
   } catch {
     return rejectWithValue("Nao foi possivel criar contato.");
@@ -309,7 +362,13 @@ export const saveCompanyAddress = createAsyncThunk<
       zipCode: state.addressForm.zipCode || undefined
     });
 
-    await dispatch(fetchCompanyDetails({ companyId: state.companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId: state.companyId,
+        canReadUsers: true,
+        date: state.selectedDate
+      })
+    ).unwrap();
   } catch {
     return rejectWithValue("Nao foi possivel salvar endereco.");
   }
@@ -346,7 +405,13 @@ export const uploadCompanyDocument = createAsyncThunk<
       }
     });
 
-    await dispatch(fetchCompanyDetails({ companyId: state.companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId: state.companyId,
+        canReadUsers: true,
+        date: state.selectedDate
+      })
+    ).unwrap();
     dispatch(setDocumentTitle(""));
     dispatch(setDocumentDescription(""));
     dispatch(setDocumentFile(null));
@@ -369,7 +434,13 @@ export const archiveCompanyDocument = createAsyncThunk<
       return;
     }
 
-    await dispatch(fetchCompanyDetails({ companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId,
+        canReadUsers: true,
+        date: getState().companyDetails.selectedDate
+      })
+    ).unwrap();
   } catch {
     return rejectWithValue("Nao foi possivel arquivar documento.");
   }
@@ -400,7 +471,13 @@ export const createCompanyContract = createAsyncThunk<
       documentIds: state.contractForm.documentIds
     });
 
-    await dispatch(fetchCompanyDetails({ companyId: state.companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId: state.companyId,
+        canReadUsers: true,
+        date: state.selectedDate
+      })
+    ).unwrap();
     dispatch(resetContractForm());
   } catch {
     return rejectWithValue("Falha ao criar contrato.");
@@ -439,7 +516,13 @@ export const saveCompanyPersonalInfo = createAsyncThunk<
       }
     });
 
-    await dispatch(fetchCompanyDetails({ companyId: state.companyId, canReadUsers: true })).unwrap();
+    await dispatch(
+      fetchCompanyDetails({
+        companyId: state.companyId,
+        canReadUsers: true,
+        date: state.selectedDate
+      })
+    ).unwrap();
     dispatch(setPersonalInfoForm({ logoFile: null }));
   } catch {
     return rejectWithValue("Nao foi possivel salvar informacoes pessoais.");
@@ -452,6 +535,10 @@ const companyDetailsSlice = createSlice({
   reducers: {
     setCompanyId(state, action: PayloadAction<string | null>) {
       state.companyId = action.payload;
+    },
+    setCompanyDetailsDate(state, action: PayloadAction<string>) {
+      state.selectedDate = action.payload;
+      state.activitiesPage = 1;
     },
     setCompanyDetailsTab(state, action: PayloadAction<CompanyDetailsTab>) {
       state.tab = action.payload;
@@ -564,6 +651,7 @@ const companyDetailsSlice = createSlice({
         state.loading = false;
         state.company = action.payload.company;
         state.activities = action.payload.activities;
+        state.kpis = action.payload.kpis;
         state.users = action.payload.users;
 
         state.addressForm = {
@@ -643,6 +731,7 @@ const companyDetailsSlice = createSlice({
 
 export const {
   setCompanyId,
+  setCompanyDetailsDate,
   setCompanyDetailsTab,
   setContactForm,
   resetContactForm,

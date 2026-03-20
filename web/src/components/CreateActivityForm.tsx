@@ -1,10 +1,11 @@
 import { FormEvent, useMemo, useState } from "react";
-import { ActivityStatus, ApiUser, Company } from "../types/api";
+import { ActivityStatus, ApiUser, Company, MessagePriority } from "../types/api";
 
 interface CreateActivityPayload {
   companyId: string;
   title: string;
   description?: string;
+  priority: MessagePriority;
   assignedToId: string;
   dueDate?: string;
   tagKeys: string[];
@@ -28,6 +29,7 @@ export function CreateActivityForm({
   const [companyId, setCompanyId] = useState(defaultCompanyId ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<MessagePriority>("MEDIA");
   const [assignedToId, setAssignedToId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [tagsInput, setTagsInput] = useState("");
@@ -42,7 +44,7 @@ export function CreateActivityForm({
     event.preventDefault();
 
     if (!canSubmit) {
-      setError("Preencha empresa, titulo e responsavel.");
+      setError("Preencha empresa, titulo e direcionado.");
       return;
     }
 
@@ -52,6 +54,7 @@ export function CreateActivityForm({
       companyId,
       title: title.trim(),
       description: description.trim() || undefined,
+      priority,
       assignedToId,
       dueDate: dueDate || undefined,
       tagKeys: tagsInput
@@ -62,6 +65,7 @@ export function CreateActivityForm({
 
     setTitle("");
     setDescription("");
+    setPriority("MEDIA");
     setAssignedToId("");
     setDueDate("");
     setTagsInput("");
@@ -69,40 +73,61 @@ export function CreateActivityForm({
 
   return (
     <form className="form-grid" onSubmit={handleSubmit}>
-      <h3>Nova Atividade</h3>
-      <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
-        <option value="">Empresa</option>
-        {companies.map((company) => (
-          <option key={company.id} value={company.id}>
-            {company.name}
-          </option>
-        ))}
-      </select>
+      <h3 style={{ gridColumn: "1 / -1" }}>Nova Atividade</h3>
+      <div className="field-block">
+        <label className="field-label">Empresa</label>
+        <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
+          <option value="">Selecione</option>
+          {companies.map((company) => (
+            <option key={company.id} value={company.id}>
+              {company.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Titulo" />
-      <input
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-        placeholder="Descricao"
-      />
+      <div className="field-block">
+        <label className="field-label">Titulo</label>
+        <input value={title} onChange={(event) => setTitle(event.target.value)} />
+      </div>
 
-      <select value={assignedToId} onChange={(event) => setAssignedToId(event.target.value)}>
-        <option value="">Responsavel</option>
-        {users.map((user) => (
-          <option key={user.id} value={user.id}>
-            {user.name}
-          </option>
-        ))}
-      </select>
+      <div className="field-block">
+        <label className="field-label">Descricao</label>
+        <input value={description} onChange={(event) => setDescription(event.target.value)} />
+      </div>
 
-      <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-      <input
-        value={tagsInput}
-        onChange={(event) => setTagsInput(event.target.value)}
-        placeholder="Tags separadas por virgula"
-      />
+      <div className="field-block">
+        <label className="field-label">Prioridade</label>
+        <select value={priority} onChange={(event) => setPriority(event.target.value as MessagePriority)}>
+          <option value="ALTA">Alta</option>
+          <option value="MEDIA">Media</option>
+          <option value="BAIXA">Baixa</option>
+        </select>
+      </div>
 
-      {error && <span className="error-text">{error}</span>}
+      <div className="field-block">
+        <label className="field-label">Direcionado a</label>
+        <select value={assignedToId} onChange={(event) => setAssignedToId(event.target.value)}>
+          <option value="">Selecione</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field-block">
+        <label className="field-label">Prazo</label>
+        <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+      </div>
+
+      <div className="field-block field-block-full">
+        <label className="field-label">Tags</label>
+        <input value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} />
+      </div>
+
+      {error && <span className="error-text" style={{ gridColumn: "1 / -1" }}>{error}</span>}
 
       <div className="form-actions">
         <button className="primary-btn" type="submit" disabled={loading || !canSubmit}>

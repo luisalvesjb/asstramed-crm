@@ -17,7 +17,6 @@ export async function getDashboardActivities(input: {
   companyId?: string;
   responsibleId?: string;
   tagKey?: string;
-  includeMessages?: boolean;
 }) {
   const date = input.date ?? new Date();
   const { start, end } = dayBounds(date);
@@ -98,61 +97,115 @@ export async function getDashboardActivities(input: {
     })
   ]);
 
-  const [openMessagesByPriorityRaw, highlightedMessages] = input.includeMessages === false
-    ? [[], []]
-    : await Promise.all([
-        prisma.companyMessage.groupBy({
-          by: ["priority"],
-          where: {
-            companyId: input.companyId,
-            parentMessageId: null,
-            deletedAt: null,
-            resolvedAt: null
-          },
-          _count: {
-            _all: true
+  const [openActivitiesByPriorityRaw, highlightedActivities] = await Promise.all([
+    prisma.activity.groupBy({
+      by: ["priority"],
+      where: {
+        companyId: input.companyId,
+        status: {
+          in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
+        }
+      },
+      _count: {
+        _all: true
+      }
+    }),
+    prisma.activity.findMany({
+      where: {
+        companyId: input.companyId,
+        status: {
+          in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
+        }
+      },
+      include: {
+        company: {
+          select: {
+            id: true,
+            code: true,
+            name: true
           }
-        }),
-        prisma.companyMessage.findMany({
-          where: {
-            companyId: input.companyId,
-            parentMessageId: null,
-            deletedAt: null
-          },
-          include: {
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        _count: {
+          select: {
+            messages: {
+              where: {
+                deletedAt: null
+              }
+            }
+          }
+        }
+      },
+      orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+      take: 5
+    })
+  ]);
+
+  const [hasOpenHighPriority, recentMessages] = await Promise.all([
+    prisma.activity.count({
+      where: {
+        companyId: input.companyId,
+        priority: "ALTA",
+        status: {
+          in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
+        }
+      }
+    }),
+    prisma.activityMessage.findMany({
+      where: {
+        deletedAt: null,
+        activity: input.companyId
+          ? {
+              companyId: input.companyId
+            }
+          : undefined
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        activity: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            assignedTo: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
             company: {
               select: {
                 id: true,
                 code: true,
                 name: true
               }
-            },
-            createdBy: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            directedTo: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            _count: {
-              select: {
-                replies: {
-                  where: {
-                    deletedAt: null
-                  }
-                }
-              }
             }
-          },
-          orderBy: [{ resolvedAt: "asc" }, { priority: "asc" }, { createdAt: "desc" }],
-          take: 5
-        })
-      ]);
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 5
+    })
+  ]);
 
   const openMessagesByPriority = {
     alta: 0,
@@ -161,7 +214,7 @@ export async function getDashboardActivities(input: {
     total: 0
   };
 
-  for (const row of openMessagesByPriorityRaw) {
+  for (const row of openActivitiesByPriorityRaw) {
     if (row.priority === "ALTA") {
       openMessagesByPriority.alta = row._count._all;
       openMessagesByPriority.total += row._count._all;
@@ -192,9 +245,11 @@ export async function getDashboardActivities(input: {
       totalOpen: totalOpenedCount
     },
     activities,
-    messages: {
+    activityInsights: {
       openByPriority: openMessagesByPriority,
-      highlighted: highlightedMessages
+      highlighted: highlightedActivities,
+      hasOpenHighPriority: hasOpenHighPriority > 0,
+      recentMessages
     }
   };
 }

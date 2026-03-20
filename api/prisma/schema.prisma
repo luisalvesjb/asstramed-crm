@@ -61,6 +61,7 @@ model User {
   createdCompanyMessages  CompanyMessage[]        @relation("CompanyMessageCreatedBy")
   directedCompanyMessages CompanyMessage[]        @relation("CompanyMessageDirectedTo")
   resolvedCompanyMessages CompanyMessage[]        @relation("CompanyMessageResolvedBy")
+  createdActivityMessages ActivityMessage[]       @relation("ActivityMessageCreatedBy")
 }
 
 model Profile {
@@ -306,6 +307,7 @@ model Activity {
   orderExec    Int
   title        String
   description  String?
+  priority     MessagePriority         @default(MEDIA)
   status       ActivityStatus          @default(PENDENTE)
   assignedToId String
   createdById  String
@@ -318,8 +320,23 @@ model Activity {
   createdBy    User                    @relation("ActivityCreatedBy", fields: [createdById], references: [id])
   tags         ActivityTag[]
   history      ActivityStatusHistory[]
+  messages     ActivityMessage[]
 
   @@index([companyId, status, createdAt])
+}
+
+model ActivityMessage {
+  id          String   @id @default(uuid())
+  activityId  String
+  content     String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("ActivityMessageCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([activityId, createdAt])
 }
 
 model Tag {

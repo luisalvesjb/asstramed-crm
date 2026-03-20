@@ -8,9 +8,6 @@ import { AppError } from "../errors/app-error";
 
 const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   "dashboard.read": "Visualizar dashboard",
-  "messages.read": "Visualizar mensagens internas por empresa",
-  "messages.write": "Cadastrar e responder mensagens internas",
-  "messages.resolve": "Resolver mensagens internas",
   "activities.read": "Visualizar atividades",
   "activities.create": "Criar atividades",
   "activities.finish": "Concluir ou alterar status de atividades",
@@ -120,7 +117,8 @@ export async function getUserExplicitPermissionKeys(userId: string): Promise<str
     include: { permission: true }
   });
 
-  return userPermissions.map((item) => item.permission.key);
+  const allowed = new Set<string>(ALL_PERMISSION_KEYS);
+  return userPermissions.map((item) => item.permission.key).filter((key) => allowed.has(key));
 }
 
 export async function setUserPermissions(userId: string, permissionKeys: string[]): Promise<void> {
@@ -155,7 +153,8 @@ export async function getProfilePermissionKeys(profileId: string): Promise<strin
     orderBy: { permission: { key: "asc" } }
   });
 
-  return profilePermissions.map((item) => item.permission.key);
+  const allowed = new Set<string>(ALL_PERMISSION_KEYS);
+  return profilePermissions.map((item) => item.permission.key).filter((key) => allowed.has(key));
 }
 
 export async function resolveEffectivePermissions(

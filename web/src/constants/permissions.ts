@@ -1,8 +1,5 @@
 export const PERMISSIONS = {
   DASHBOARD_READ: "dashboard.read",
-  MESSAGES_READ: "messages.read",
-  MESSAGES_WRITE: "messages.write",
-  MESSAGES_RESOLVE: "messages.resolve",
   ACTIVITIES_READ: "activities.read",
   ACTIVITIES_CREATE: "activities.create",
   ACTIVITIES_FINISH: "activities.finish",

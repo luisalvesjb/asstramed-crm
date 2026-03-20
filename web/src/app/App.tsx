@@ -17,6 +17,9 @@ const CompanyDetailsPage = lazy(() =>
 const ActivitiesPage = lazy(() =>
   import("../pages/ActivitiesPage").then((module) => ({ default: module.ActivitiesPage }))
 );
+const ActivityDetailsPage = lazy(() =>
+  import("../pages/ActivityDetailsPage").then((module) => ({ default: module.ActivityDetailsPage }))
+);
 const UsersPage = lazy(() => import("../pages/UsersPage").then((module) => ({ default: module.UsersPage })));
 const ReportsPage = lazy(() =>
   import("../pages/ReportsPage").then((module) => ({ default: module.ReportsPage }))
@@ -120,9 +123,15 @@ export function App() {
           path="/atividades"
           element={
             <ProtectedLayout>
-              <RequirePermission permission={PERMISSIONS.ACTIVITIES_READ}>
-                <ActivitiesPage />
-              </RequirePermission>
+              <ActivitiesPage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/atividades/:id"
+          element={
+            <ProtectedLayout>
+              <ActivityDetailsPage />
             </ProtectedLayout>
           }
         />

@@ -24,3 +24,7 @@ export const createMessageSchema = z.object({
 export const replyMessageSchema = z.object({
   content: z.string().min(1)
 });
+
+export const updateMessageStatusSchema = z.object({
+  status: z.enum(["ABERTA", "RESOLVIDA"])
+});

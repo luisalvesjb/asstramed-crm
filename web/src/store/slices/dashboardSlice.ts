@@ -2,11 +2,12 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { api } from "../../services/api";
 import {
   Activity,
+  ActivityInteraction,
   ActivityStatus,
   ApiUser,
   Company,
-  CompanyMessage,
-  DashboardResponse
+  DashboardResponse,
+  MessagePriority
 } from "../../types/api";
 import type { RootState } from "../index";
 
@@ -27,14 +28,16 @@ interface DashboardState {
     unresolved: number;
     totalOpen: number;
   };
-  messages: {
+  activityInsights: {
     openByPriority: {
       alta: number;
       media: number;
       baixa: number;
       total: number;
     };
-    highlighted: CompanyMessage[];
+    highlighted: Activity[];
+    hasOpenHighPriority: boolean;
+    recentMessages: ActivityInteraction[];
   };
   activities: Activity[];
   companies: Company[];
@@ -54,6 +57,7 @@ interface CreateTaskInput {
   activityHtml: string;
   tags: string[];
   status: ActivityStatus;
+  priority: MessagePriority;
 }
 
 function todayAsInputDate(): string {
@@ -79,14 +83,16 @@ const initialState: DashboardState = {
     unresolved: 0,
     totalOpen: 0
   },
-  messages: {
+  activityInsights: {
     openByPriority: {
       alta: 0,
       media: 0,
       baixa: 0,
       total: 0
     },
-    highlighted: []
+    highlighted: [],
+    hasOpenHighPriority: false,
+    recentMessages: []
   },
   activities: [],
   companies: [],
@@ -155,6 +161,7 @@ export const createDashboardTask = createAsyncThunk<void, CreateTaskInput, { sta
       dueDate: payload.dueDate,
       title,
       description: payload.activityHtml,
+      priority: payload.priority,
       tagKeys: payload.tags
     });
 
@@ -236,7 +243,7 @@ const dashboardSlice = createSlice({
         state.loading = false;
         state.kpis = action.payload.kpis;
         state.activities = action.payload.activities;
-        state.messages = action.payload.messages;
+        state.activityInsights = action.payload.activityInsights;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
         state.loading = false;

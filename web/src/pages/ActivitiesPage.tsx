@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
 import { CreateActivityForm } from "../components/CreateActivityForm";
-import { PERMISSIONS } from "../constants/permissions";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
-import { Activity, ActivityStatus, ApiUser, Company } from "../types/api";
+import { Activity, ActivityStatus, ApiUser, Company, MessagePriority } from "../types/api";
+import { AppButton } from "../ui/components";
 import { formatDate, formatDateTime, statusLabel } from "../utils/format";
 
 function todayAsInputDate() {
@@ -12,7 +13,8 @@ function todayAsInputDate() {
 }
 
 export function ActivitiesPage() {
-  const { hasPermission, selectedCompanyId, user } = useAuth();
+  const navigate = useNavigate();
+  const { selectedCompanyId, user } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -22,7 +24,7 @@ export function ActivitiesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [status, setStatus] = useState<ActivityStatus | "">("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(todayAsInputDate());
   const [companyId, setCompanyId] = useState(selectedCompanyId ?? "");
   const [responsibleId, setResponsibleId] = useState("");
   const [tagKey, setTagKey] = useState("");
@@ -39,22 +41,13 @@ export function ActivitiesPage() {
   }, [selectedCompanyId]);
 
   async function loadBaseData() {
-    try {
-      const [companiesResponse, usersResponse] = await Promise.all([
-        hasPermission(PERMISSIONS.COMPANIES_READ)
-          ? api.get<Company[]>("/companies")
-          : Promise.resolve({ data: [] as Company[] }),
-        hasPermission(PERMISSIONS.USERS_READ)
-          ? api.get<ApiUser[]>("/users")
-          : Promise.resolve({ data: [] as ApiUser[] })
-      ]);
+    const [companiesResponse, usersResponse] = await Promise.all([
+      api.get<Company[]>("/companies").catch(() => ({ data: [] as Company[] })),
+      api.get<ApiUser[]>("/users").catch(() => ({ data: [] as ApiUser[] }))
+    ]);
 
-      setCompanies(companiesResponse.data);
-      setUsers(usersResponse.data);
-    } catch {
-      setCompanies([]);
-      setUsers([]);
-    }
+    setCompanies(companiesResponse.data);
+    setUsers(usersResponse.data);
   }
 
   async function loadActivities() {
@@ -90,6 +83,7 @@ export function ActivitiesPage() {
     companyId: string;
     title: string;
     description?: string;
+    priority: MessagePriority;
     assignedToId: string;
     dueDate?: string;
     tagKeys: string[];
@@ -111,29 +105,18 @@ export function ActivitiesPage() {
     }
   }
 
-  async function updateStatus(activityId: string, nextStatus: ActivityStatus) {
-    try {
-      await api.patch(`/activities/${activityId}/status`, { status: nextStatus });
-      await loadActivities();
-    } catch {
-      setError("Falha ao atualizar status da atividade.");
-    }
-  }
-
   return (
     <div className="page">
       <div className="page-header">
         <h1>Todas as Atividades</h1>
-        {hasPermission(PERMISSIONS.ACTIVITIES_CREATE) && (
-          <button className="primary-btn" onClick={() => setShowCreateForm((prev) => !prev)}>
-            {showCreateForm ? "Fechar" : "Nova Atividade"}
-          </button>
-        )}
+        <AppButton type="primary" onClick={() => setShowCreateForm((prev) => !prev)}>
+          {showCreateForm ? "Fechar" : "Nova tarefa"}
+        </AppButton>
       </div>
 
       {error && <div className="card error-box">{error}</div>}
 
-      {showCreateForm && hasPermission(PERMISSIONS.ACTIVITIES_CREATE) && (
+      {showCreateForm && (
         <div className="card">
           <CreateActivityForm
             companies={companies}
@@ -146,31 +129,46 @@ export function ActivitiesPage() {
       )}
 
       <div className="filters-row">
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-        <select value={status} onChange={(event) => setStatus(event.target.value as ActivityStatus | "")}> 
-          <option value="">Status: Todos</option>
-          <option value="PENDENTE">Pendente</option>
-          <option value="EM_EXECUCAO">Em execucao</option>
-          <option value="CONCLUIDA">Concluida</option>
-          <option value="CANCELADA">Cancelada</option>
-        </select>
-        <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
-          <option value="">Empresa: Todas</option>
-          {companies.map((company) => (
-            <option key={company.id} value={company.id}>
-              {company.name}
-            </option>
-          ))}
-        </select>
-        <select value={responsibleId} onChange={(event) => setResponsibleId(event.target.value)}>
-          <option value="">Responsavel: Todos</option>
-          {userOptions.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.name}
-            </option>
-          ))}
-        </select>
-        <input placeholder="Tag (ex: ASO)" value={tagKey} onChange={(event) => setTagKey(event.target.value)} />
+        <div className="field-block">
+          <label className="field-label">Data</label>
+          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+        </div>
+        <div className="field-block">
+          <label className="field-label">Status</label>
+          <select value={status} onChange={(event) => setStatus(event.target.value as ActivityStatus | "")}> 
+            <option value="">Todos</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="EM_EXECUCAO">Em execucao</option>
+            <option value="CONCLUIDA">Concluida</option>
+            <option value="CANCELADA">Cancelada</option>
+          </select>
+        </div>
+        <div className="field-block">
+          <label className="field-label">Empresa</label>
+          <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
+            <option value="">Todas</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field-block">
+          <label className="field-label">Direcionado a</label>
+          <select value={responsibleId} onChange={(event) => setResponsibleId(event.target.value)}>
+            <option value="">Todos</option>
+            {userOptions.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field-block">
+          <label className="field-label">Tag</label>
+          <input value={tagKey} onChange={(event) => setTagKey(event.target.value)} />
+        </div>
         <div className="filters-actions">
           <button className="primary-btn" onClick={() => void loadActivities()}>
             Aplicar
@@ -195,9 +193,10 @@ export function ActivitiesPage() {
           <tr>
             <th>Ordem</th>
             <th>Status</th>
+            <th>Prioridade</th>
             <th>Empresa</th>
             <th>Atividade</th>
-            <th>Responsavel</th>
+            <th>Direcionado a</th>
             <th>Tags</th>
             <th>Criada em</th>
             <th>Acoes</th>
@@ -206,7 +205,7 @@ export function ActivitiesPage() {
         <tbody>
           {!loading && activities.length === 0 && (
             <tr>
-              <td colSpan={8}>Nenhuma atividade encontrada.</td>
+              <td colSpan={9}>Nenhuma atividade encontrada.</td>
             </tr>
           )}
           {activities.map((activity) => (
@@ -215,6 +214,7 @@ export function ActivitiesPage() {
               <td>
                 <span className={`status-chip ${activity.status.toLowerCase()}`}>{statusLabel(activity.status)}</span>
               </td>
+              <td>{activity.priority}</td>
               <td>{activity.company.name}</td>
               <td>
                 {activity.title}
@@ -225,30 +225,9 @@ export function ActivitiesPage() {
               <td>{activity.tags.map((item) => item.tag.key).join(", ") || "-"}</td>
               <td>{formatDateTime(activity.createdAt)}</td>
               <td>
-                {hasPermission(PERMISSIONS.ACTIVITIES_FINISH) ? (
-                  <div className="status-actions">
-                    {activity.status !== "EM_EXECUCAO" && (
-                      <button
-                        className="secondary-btn"
-                        onClick={() => void updateStatus(activity.id, "EM_EXECUCAO")}
-                      >
-                        Em execucao
-                      </button>
-                    )}
-                    {activity.status !== "CONCLUIDA" && (
-                      <button className="secondary-btn" onClick={() => void updateStatus(activity.id, "CONCLUIDA")}> 
-                        Concluir
-                      </button>
-                    )}
-                    {activity.status !== "CANCELADA" && (
-                      <button className="secondary-btn" onClick={() => void updateStatus(activity.id, "CANCELADA")}> 
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <span>-</span>
-                )}
+                <AppButton size="small" onClick={() => navigate(`/atividades/${activity.id}`)}>
+                  Detalhes
+                </AppButton>
               </td>
             </tr>
           ))}

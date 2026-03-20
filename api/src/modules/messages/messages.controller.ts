@@ -3,7 +3,8 @@ import {
   createMessageSchema,
   listMessagesSchema,
   messageIdParamSchema,
-  replyMessageSchema
+  replyMessageSchema,
+  updateMessageStatusSchema
 } from "./messages.validators";
 import * as messagesService from "./messages.service";
 
@@ -35,5 +36,12 @@ export async function replyMessage(req: Request, res: Response): Promise<void> {
 export async function resolveMessage(req: Request, res: Response): Promise<void> {
   const { id } = messageIdParamSchema.parse(req.params);
   const message = await messagesService.resolveMessage(req.user!.id, id);
+  res.status(200).json(message);
+}
+
+export async function updateMessageStatus(req: Request, res: Response): Promise<void> {
+  const { id } = messageIdParamSchema.parse(req.params);
+  const payload = updateMessageStatusSchema.parse(req.body);
+  const message = await messagesService.updateMessageStatus(req.user!.id, id, payload.status);
   res.status(200).json(message);
 }

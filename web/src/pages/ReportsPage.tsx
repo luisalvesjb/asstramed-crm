@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import dayjs from "dayjs";
 import { api } from "../services/api";
 import { Company } from "../types/api";
-import { AppButton, AppDateTimePicker, DashboardFilterSelect, KpiStatCard } from "../ui/components";
+import { AppButton, DashboardFilterSelect, InlineDateNavigator, KpiStatCard } from "../ui/components";
 import { formatCurrency, formatDate } from "../utils/format";
 
 interface ActivityReportItem {
@@ -144,26 +143,8 @@ export function ReportsPage() {
       {error && <div className="card error-box">{error}</div>}
 
       <div className="asstramed-dashboard-filters">
-        <AppDateTimePicker
-          showTime={false}
-          format="DD/MM/YYYY"
-          value={startDate ? dayjs(startDate) : null}
-          onChange={(value) => {
-            const parsed = Array.isArray(value) ? (value[0] ?? null) : value;
-            setStartDate(parsed ? parsed.format("YYYY-MM-DD") : "");
-          }}
-          placeholder="Data inicial"
-        />
-        <AppDateTimePicker
-          showTime={false}
-          format="DD/MM/YYYY"
-          value={endDate ? dayjs(endDate) : null}
-          onChange={(value) => {
-            const parsed = Array.isArray(value) ? (value[0] ?? null) : value;
-            setEndDate(parsed ? parsed.format("YYYY-MM-DD") : "");
-          }}
-          placeholder="Data final"
-        />
+        <InlineDateNavigator label="Data inicial" value={startDate} onChange={setStartDate} />
+        <InlineDateNavigator label="Data final" value={endDate} onChange={setEndDate} />
         <DashboardFilterSelect
           value={companyId || undefined}
           placeholder="Empresa: Todas"
