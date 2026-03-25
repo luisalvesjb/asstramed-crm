@@ -39,7 +39,8 @@ enum MessagePriority {
 model User {
   id                      String                  @id @default(uuid())
   name                    String
-  email                   String                  @unique
+  login                   String                  @unique
+  email                   String?                 @unique
   passwordHash            String
   avatarPath              String?
   avatarMimeType          String?
@@ -242,6 +243,7 @@ model FinancialEntry {
   title                  String
   description            String?
   amount                 Decimal
+  amountPaid             Decimal?
   status                 FinancialEntryStatus     @default(PENDENTE)
   dueDate                DateTime
   paymentDate            DateTime?

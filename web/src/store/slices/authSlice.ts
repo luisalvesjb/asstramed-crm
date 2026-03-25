@@ -90,7 +90,7 @@ export const bootstrapAuth = createAsyncThunk<MeResponse | null, void, { state: 
   }
 );
 
-export const loginUser = createAsyncThunk<LoginResponse, { email: string; password: string }, { state: RootState }>(
+export const loginUser = createAsyncThunk<LoginResponse, { login: string; password: string }, { state: RootState }>(
   "auth/login",
   async (payload) => {
     const response = await api.post<LoginResponse>("/auth/login", payload);

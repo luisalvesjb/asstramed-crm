@@ -4,8 +4,21 @@ Projeto completo em `/Users/luisalves/Documents/workspace/personal/asstramed-crm
 
 - `api`: Node.js + Express + TypeScript + Prisma + PostgreSQL
 - `web`: React + TypeScript + Vite
+- `site`: landing institucional React + Vite para `www.asstramed.com.br`
 
 ## Entrega concluida
+
+### Atualizacao 2026-03-25 (landing institucional separada)
+
+- Novo app `site/` criada no monorepo para a landing publica.
+- `www.asstramed.com.br` deve apontar para `site/`.
+- `crm.asstramed.com.br` continua apontando para `web/`.
+- `site/` tem:
+  - build proprio com Vite
+  - Dockerfile proprio
+  - Nginx proprio
+  - pagina institucional baseada em `LandingPage.tsx`
+- A landing ficou isolada do CRM para evitar acoplamento de rotas, auth e bundle.
 
 ### Atualizacao 2026-03-25 (cadastro unificado de empresa)
 
@@ -31,6 +44,30 @@ Projeto completo em `/Users/luisalves/Documents/workspace/personal/asstramed-crm
 - Schema ampliado em `CompanyContact` com `hasWhatsapp`
 - Migration adicionada:
   - `api/prisma/migrations/20260325093000_add_company_contact_whatsapp_flag`
+
+### Atualizacao 2026-03-25 (atividades, usuarios, financeiro e relatorios)
+
+- Tela de `Atividades`:
+  - remove filtro de data obrigatorio do topo
+  - listagem agora abre geral, sem restringir ao dia atual
+  - periodo passou a ser filtro opcional (`Data inicial` e `Data final`)
+- Dashboard:
+  - bloco de `Ultimas mensagens` agora usa apenas a mensagem principal da atividade (`title` / `description`)
+  - comentarios internos deixaram de contaminar o resumo do dashboard
+  - `Detalhes` do bloco passa a navegar pela propria `atividade`
+- Usuarios:
+  - autenticacao migrada para `login`
+  - tela de usuarios remove `e-mail` do fluxo e passa a usar `login`
+  - `Meu perfil` e tela de `Login` atualizados para `login`
+- Financeiro:
+  - `FinancialEntry` agora possui `amount` e `amountPaid`
+  - status `PAGO` deixa de depender do valor pago ser igual ao valor do lancamento
+  - KPIs e relatorios financeiros usam `amountPaid` quando o lancamento estiver pago
+  - formularios de lancamento/pagamento foram ajustados para labels acima dos campos
+- Relatorios:
+  - nova flag `Em aberto` nos relatorios de atividades / produtividade / exportacao CSV
+- Migration adicionada:
+  - `api/prisma/migrations/20260325113000_user_login_and_financial_paid_amount`
 
 ### Atualizacao 2026-03-17 (dashboard + mensagens + financeiro)
 

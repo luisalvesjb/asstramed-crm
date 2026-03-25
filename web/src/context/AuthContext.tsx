@@ -23,7 +23,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   permissions: string[];
   selectedCompanyId: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
@@ -54,8 +54,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [dispatch, initialized]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      await dispatch(loginUser({ email, password })).unwrap();
+    async (login: string, password: string) => {
+      await dispatch(loginUser({ login, password })).unwrap();
       await dispatch(loadTopbarCompanies()).unwrap();
     },
     [dispatch]

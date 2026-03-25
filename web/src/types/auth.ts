@@ -1,7 +1,8 @@
 export interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email?: string | null;
   profileId: string;
   profileKey: string;
   profileName: string;

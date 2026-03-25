@@ -49,6 +49,11 @@ function companyCodeLabel(code?: number): string {
   return String(code).padStart(4, "0");
 }
 
+function stripHtml(input?: string | null): string {
+  if (!input) return "";
+  return input.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export function DashboardPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -340,24 +345,24 @@ export function DashboardPage() {
               <div key={interaction.id} className="message-highlight-item">
                 <div className="message-highlight-main">
                   <div className="filters-actions">
-                    <AppTag color={priorityColor(interaction.activity.priority)}>
-                      {priorityLabel(interaction.activity.priority)}
+                    <AppTag color={priorityColor(interaction.priority)}>
+                      {priorityLabel(interaction.priority)}
                     </AppTag>
-                    <AppTag color={interaction.activity.status === "CONCLUIDA" ? "green" : "processing"}>
-                      {statusLabel(interaction.activity.status)}
+                    <AppTag color={interaction.status === "CONCLUIDA" ? "green" : "processing"}>
+                      {statusLabel(interaction.status)}
                     </AppTag>
                   </div>
                   <strong>
-                    {interaction.activity.company.name} • {interaction.activity.title}
+                    {interaction.company.name} • {interaction.title}
                   </strong>
-                  <p>{interaction.content}</p>
+                  <p>{stripHtml(interaction.description) || interaction.title}</p>
                   <small>
-                    Direcionado a {interaction.activity.assignedTo.name}
+                    Direcionado a {interaction.assignedTo.name}
                     {` • Por ${interaction.createdBy.name}`}
                     {` • ${formatDateTime(interaction.createdAt)}`}
                   </small>
                 </div>
-                <AppButton onClick={() => navigate(`/atividades/${interaction.activity.id}`)}>Detalhes</AppButton>
+                <AppButton onClick={() => navigate(`/atividades/${interaction.id}`)}>Detalhes</AppButton>
               </div>
             ))
           )}

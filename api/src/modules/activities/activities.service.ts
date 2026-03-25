@@ -14,20 +14,34 @@ function getDayBounds(date: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
+function getPeriodFilter(filters: ListActivitiesFilters): Prisma.DateTimeFilter | undefined {
+  if (filters.startDate || filters.endDate) {
+    return {
+      gte: filters.startDate ? getDayBounds(filters.startDate).start : undefined,
+      lte: filters.endDate ? getDayBounds(filters.endDate).end : undefined
+    };
+  }
+
+  if (filters.date) {
+    const day = getDayBounds(filters.date);
+    return {
+      gte: day.start,
+      lte: day.end
+    };
+  }
+
+  return undefined;
+}
+
 export async function listActivities(filters: ListActivitiesFilters) {
-  const dateFilter = filters.date ? getDayBounds(filters.date) : null;
+  const dateFilter = getPeriodFilter(filters);
 
   return prisma.activity.findMany({
     where: {
       status: filters.status,
       companyId: filters.companyId,
       assignedToId: filters.responsibleId,
-      createdAt: dateFilter
-        ? {
-            gte: dateFilter.start,
-            lte: dateFilter.end
-          }
-        : undefined,
+      createdAt: dateFilter,
       tags: filters.tagKey
         ? {
             some: {
@@ -67,14 +81,21 @@ export async function listActivities(filters: ListActivitiesFilters) {
 export async function listActivityInteractions(input: { companyId?: string; take?: number }) {
   const take = input.take ?? 5;
 
-  return prisma.activityMessage.findMany({
+  return prisma.activity.findMany({
     where: {
-      deletedAt: null,
-      activity: input.companyId
-        ? {
-            companyId: input.companyId
+      companyId: input.companyId,
+      OR: [
+        {
+          description: {
+            not: null
           }
-        : undefined
+        },
+        {
+          title: {
+            not: ""
+          }
+        }
+      ]
     },
     include: {
       createdBy: {
@@ -83,31 +104,21 @@ export async function listActivityInteractions(input: { companyId?: string; take
           name: true
         }
       },
-      activity: {
+      assignedTo: {
         select: {
           id: true,
-          title: true,
-          status: true,
-          priority: true,
-          assignedTo: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          company: {
-            select: {
-              id: true,
-              code: true,
-              name: true
-            }
-          }
+          name: true
+        }
+      },
+      company: {
+        select: {
+          id: true,
+          code: true,
+          name: true
         }
       }
     },
-    orderBy: {
-      createdAt: "desc"
-    },
+    orderBy: [{ createdAt: "desc" }],
     take
   });
 }

@@ -23,13 +23,20 @@ export async function activityReport(filters: {
   companyId?: string;
   responsibleId?: string;
   status?: ActivityStatus;
+  openOnly?: boolean;
 }) {
+  const statusFilter = filters.openOnly
+    ? {
+        in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
+      }
+    : filters.status;
+
   return prisma.activity.findMany({
     where: {
       createdAt: buildDateFilter(filters.startDate, filters.endDate),
       companyId: filters.companyId,
       assignedToId: filters.responsibleId,
-      status: filters.status
+      status: statusFilter
     },
     include: {
       company: {
@@ -64,10 +71,16 @@ export async function productivityReport(filters: {
   startDate?: Date;
   endDate?: Date;
   companyId?: string;
+  openOnly?: boolean;
 }) {
   const whereBase = {
     createdAt: buildDateFilter(filters.startDate, filters.endDate),
-    companyId: filters.companyId
+    companyId: filters.companyId,
+    status: filters.openOnly
+      ? {
+          in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
+        }
+      : undefined
   };
 
   const [totals, resolved] = await Promise.all([
@@ -81,7 +94,8 @@ export async function productivityReport(filters: {
     prisma.activity.groupBy({
       by: ["assignedToId"],
       where: {
-        ...whereBase,
+        createdAt: buildDateFilter(filters.startDate, filters.endDate),
+        companyId: filters.companyId,
         status: ActivityStatus.CONCLUIDA
       },
       _count: {
@@ -109,7 +123,7 @@ export async function productivityReport(filters: {
 
   return totals.map((item) => {
     const user = userMap.get(item.assignedToId);
-    const resolvedCount = resolvedMap.get(item.assignedToId) ?? 0;
+    const resolvedCount = filters.openOnly ? 0 : resolvedMap.get(item.assignedToId) ?? 0;
     const total = item._count._all;
 
     return {
@@ -123,11 +137,12 @@ export async function productivityReport(filters: {
   });
 }
 
-export async function pendingByCompanyReport(filters: { startDate?: Date; endDate?: Date }) {
+export async function pendingByCompanyReport(filters: { startDate?: Date; endDate?: Date; companyId?: string }) {
   const pending = await prisma.activity.groupBy({
     by: ["companyId"],
     where: {
       createdAt: buildDateFilter(filters.startDate, filters.endDate),
+      companyId: filters.companyId,
       status: {
         in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
       }
@@ -206,6 +221,7 @@ export async function activitiesCsv(filters: {
   companyId?: string;
   responsibleId?: string;
   status?: ActivityStatus;
+  openOnly?: boolean;
 }) {
   const rows = await activityReport(filters);
 

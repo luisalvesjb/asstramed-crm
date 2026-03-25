@@ -16,6 +16,7 @@ interface DailyEntryItem {
   id: string;
   title: string;
   amount: string | number;
+  amountPaid?: string | number | null;
   status: string;
   dueDate: string;
   paymentDate?: string | null;
@@ -60,6 +61,10 @@ function dateDaysAgo(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() - days);
   return date.toISOString().slice(0, 10);
+}
+
+function resolvePaidAmount(entry: DailyEntryItem): number {
+  return Number(entry.amountPaid ?? entry.amount ?? 0);
 }
 
 export function FinancialReportsPage() {
@@ -218,7 +223,7 @@ export function FinancialReportsPage() {
             {
               title: "Valor",
               key: "amount",
-              render: (_, record) => formatCurrency(record.amount)
+              render: (_, record) => formatCurrency(resolvePaidAmount(record))
             },
             {
               title: "Categoria",

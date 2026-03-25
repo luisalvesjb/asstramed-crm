@@ -112,6 +112,7 @@ async function syncSystemProfiles(dryRun: boolean): Promise<void> {
 }
 
 async function ensureUser(input: {
+  login: string;
   email: string;
   password: string;
   name: string;
@@ -133,7 +134,9 @@ async function ensureUser(input: {
     throw new Error(`Perfil nao encontrado para seed (${input.profileKey}).`);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
+  const existing =
+    (await prisma.user.findUnique({ where: { login: input.login } })) ??
+    (await prisma.user.findUnique({ where: { email: input.email } }));
 
   if (existing) {
     console.log(`[seed] usuario ja existe (${input.email}).`);
@@ -150,6 +153,7 @@ async function ensureUser(input: {
   const user = await prisma.user.create({
     data: {
       name: input.name,
+      login: input.login,
       email: input.email,
       passwordHash,
       profileId: profile.id,
@@ -163,11 +167,13 @@ async function ensureUser(input: {
 }
 
 async function ensureAdminUser(dryRun: boolean) {
+  const login = process.env.SEED_ADMIN_LOGIN ?? "admin";
   const email = process.env.SEED_ADMIN_EMAIL ?? "admin@asstramed.com";
   const password = process.env.SEED_ADMIN_PASSWORD ?? "123456";
   const name = process.env.SEED_ADMIN_NAME ?? "Admin Asstramed";
 
   return ensureUser({
+    login,
     email,
     password,
     name,
@@ -267,13 +273,17 @@ async function seedDemoData(dryRun: boolean): Promise<void> {
   console.log(`[seed] iniciando dados demo${dryRun ? " (dry-run)" : ""}...`);
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@asstramed.com";
-  const admin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  const adminLogin = process.env.SEED_ADMIN_LOGIN ?? "admin";
+  const admin =
+    (await prisma.user.findUnique({ where: { login: adminLogin } })) ??
+    (await prisma.user.findUnique({ where: { email: adminEmail } }));
 
   if (!admin && !dryRun) {
     throw new Error("Usuario admin nao encontrado para vincular dados demo.");
   }
 
   const gestor = await ensureUser({
+    login: "gestor",
     email: "gestor@asstramed.com",
     password: "123456",
     name: "Gestor Asstramed",
@@ -282,6 +292,7 @@ async function seedDemoData(dryRun: boolean): Promise<void> {
   });
 
   const tecnico = await ensureUser({
+    login: "tecnico",
     email: "tecnico@asstramed.com",
     password: "123456",
     name: "Tecnico Asstramed",
@@ -290,6 +301,7 @@ async function seedDemoData(dryRun: boolean): Promise<void> {
   });
 
   await ensureUser({
+    login: "financeiro",
     email: "financeiro@asstramed.com",
     password: "123456",
     name: "Financeiro Asstramed",

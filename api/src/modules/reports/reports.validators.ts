@@ -6,5 +6,9 @@ export const reportFiltersSchema = z.object({
   endDate: z.coerce.date().optional(),
   companyId: z.string().uuid().optional(),
   responsibleId: z.string().uuid().optional(),
-  status: z.nativeEnum(ActivityStatus).optional()
+  status: z.nativeEnum(ActivityStatus).optional(),
+  openOnly: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "true"))
 });

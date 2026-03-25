@@ -8,10 +8,6 @@ import { Activity, ActivityStatus, ApiUser, Company, MessagePriority } from "../
 import { AppButton } from "../ui/components";
 import { formatDate, formatDateTime, statusLabel } from "../utils/format";
 
-function todayAsInputDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export function ActivitiesPage() {
   const navigate = useNavigate();
   const { selectedCompanyId, user } = useAuth();
@@ -24,7 +20,8 @@ export function ActivitiesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [status, setStatus] = useState<ActivityStatus | "">("");
-  const [date, setDate] = useState(todayAsInputDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [companyId, setCompanyId] = useState(selectedCompanyId ?? "");
   const [responsibleId, setResponsibleId] = useState("");
   const [tagKey, setTagKey] = useState("");
@@ -57,7 +54,8 @@ export function ActivitiesPage() {
     try {
       const response = await api.get<Activity[]>("/activities", {
         params: {
-          date: date || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           status: status || undefined,
           companyId: companyId || undefined,
           responsibleId: responsibleId || undefined,
@@ -130,10 +128,6 @@ export function ActivitiesPage() {
 
       <div className="filters-row">
         <div className="field-block">
-          <label className="field-label">Data</label>
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-        </div>
-        <div className="field-block">
           <label className="field-label">Status</label>
           <select value={status} onChange={(event) => setStatus(event.target.value as ActivityStatus | "")}> 
             <option value="">Todos</option>
@@ -169,6 +163,14 @@ export function ActivitiesPage() {
           <label className="field-label">Tag</label>
           <input value={tagKey} onChange={(event) => setTagKey(event.target.value)} />
         </div>
+        <div className="field-block">
+          <label className="field-label">Data inicial</label>
+          <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+        </div>
+        <div className="field-block">
+          <label className="field-label">Data final</label>
+          <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+        </div>
         <div className="filters-actions">
           <button className="primary-btn" onClick={() => void loadActivities()}>
             Aplicar
@@ -177,7 +179,8 @@ export function ActivitiesPage() {
             className="secondary-btn"
             onClick={() => {
               setStatus("");
-              setDate(todayAsInputDate());
+              setStartDate("");
+              setEndDate("");
               setResponsibleId("");
               setTagKey("");
               void loadActivities();

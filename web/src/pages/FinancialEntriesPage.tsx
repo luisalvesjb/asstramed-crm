@@ -29,6 +29,7 @@ interface EntryFormState {
   title: string;
   description: string;
   amount: string;
+  amountPaid: string;
   dueDate: string;
   paymentDate: string;
   launchDate: string;
@@ -44,6 +45,7 @@ interface EntryFormState {
 
 interface PayFormState {
   paymentDate: string;
+  amountPaid: string;
   paymentMethodId: string;
   paymentKey: string;
 }
@@ -106,6 +108,7 @@ const INITIAL_FORM: EntryFormState = {
   title: "",
   description: "",
   amount: "",
+  amountPaid: "",
   dueDate: todayInputDate(),
   paymentDate: "",
   launchDate: todayInputDate(),
@@ -121,9 +124,14 @@ const INITIAL_FORM: EntryFormState = {
 
 const INITIAL_PAY_FORM: PayFormState = {
   paymentDate: todayInputDate(),
+  amountPaid: "",
   paymentMethodId: "",
   paymentKey: ""
 };
+
+function resolvePaidAmount(entry: FinancialEntry): number {
+  return Number(entry.amountPaid ?? entry.amount ?? 0);
+}
 
 export function FinancialEntriesPage() {
   const [loading, setLoading] = useState(true);
@@ -160,7 +168,7 @@ export function FinancialEntriesPage() {
 
     return {
       paidCount: paid.length,
-      paidValue: paid.reduce((acc, item) => acc + Number(item.amount), 0),
+      paidValue: paid.reduce((acc, item) => acc + resolvePaidAmount(item), 0),
       pendingCount: pending.length,
       pendingValue: pending.reduce((acc, item) => acc + Number(item.amount), 0),
       overdueCount: overdue.length,
@@ -252,9 +260,14 @@ export function FinancialEntriesPage() {
       )
     },
     {
-      title: "Valor",
+      title: "Valor lancamento",
       key: "amount",
       render: (_, record) => formatCurrency(record.amount)
+    },
+    {
+      title: "Valor pago",
+      key: "amountPaid",
+      render: (_, record) => (record.amountPaid != null ? formatCurrency(record.amountPaid) : "-")
     },
     {
       title: "Status",
@@ -435,6 +448,7 @@ export function FinancialEntriesPage() {
       title: entry.title,
       description: entry.description ?? "",
       amount: String(entry.amount ?? ""),
+      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : "",
       dueDate: toInputDate(entry.dueDate),
       paymentDate: toInputDate(entry.paymentDate),
       launchDate: toInputDate(entry.launchDate),
@@ -456,6 +470,7 @@ export function FinancialEntriesPage() {
     setPayingEntryId(entry.id);
     setPayForm({
       paymentDate: todayInputDate(),
+      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : String(entry.amount ?? ""),
       paymentMethodId: entry.paymentMethodId ?? "",
       paymentKey: entry.paymentKey ?? ""
     });
@@ -490,6 +505,7 @@ export function FinancialEntriesPage() {
         title: form.title,
         description: form.description,
         amount: Number(form.amount),
+        amountPaid: form.amountPaid ? Number(form.amountPaid) : undefined,
         dueDate: form.dueDate,
         paymentDate: form.paymentDate || undefined,
         launchDate: form.launchDate || undefined,
@@ -568,6 +584,7 @@ export function FinancialEntriesPage() {
     try {
       await api.patch(`/financial/entries/${payingEntryId}/pay`, {
         paymentDate: payForm.paymentDate || new Date().toISOString(),
+        amountPaid: payForm.amountPaid ? Number(payForm.amountPaid) : undefined,
         paymentMethodId: payForm.paymentMethodId || undefined,
         paymentKey: payForm.paymentKey || undefined
       });
@@ -723,79 +740,116 @@ export function FinancialEntriesPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Titulo"
-            value={form.title}
-            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Descricao"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          />
-          <AppInput
-            type="number"
-            placeholder="Valor"
-            value={form.amount}
-            onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-          />
-          <AppInput
-            type="date"
-            value={form.dueDate}
-            onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
-          />
-          <AppInput
-            type="date"
-            value={form.launchDate}
-            onChange={(event) => setForm((prev) => ({ ...prev, launchDate: event.target.value }))}
-          />
-          <AppInput
-            type="date"
-            value={form.paymentDate}
-            onChange={(event) => setForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Titulo</label>
+            <AppInput
+              value={form.title}
+              onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Descricao</label>
+            <AppInput
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Valor do lancamento</label>
+            <AppInput
+              type="number"
+              value={form.amount}
+              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Valor pago</label>
+            <AppInput
+              type="number"
+              value={form.amountPaid}
+              onChange={(event) => setForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Vencimento</label>
+            <AppInput
+              type="date"
+              value={form.dueDate}
+              onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Data de lancamento</label>
+            <AppInput
+              type="date"
+              value={form.launchDate}
+              onChange={(event) => setForm((prev) => ({ ...prev, launchDate: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Data de pagamento</label>
+            <AppInput
+              type="date"
+              value={form.paymentDate}
+              onChange={(event) => setForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
+            />
+          </div>
 
-          <DashboardFilterSelect
-            value={form.status}
-            options={STATUS_OPTIONS}
-            onChange={(value) => setForm((prev) => ({ ...prev, status: value as FinancialEntryStatus }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Status</label>
+            <DashboardFilterSelect
+              value={form.status}
+              options={STATUS_OPTIONS}
+              onChange={(value) => setForm((prev) => ({ ...prev, status: value as FinancialEntryStatus }))}
+            />
+          </div>
 
-          <DashboardFilterSelect
-            value={form.categoryId || undefined}
-            placeholder="Categoria"
-            options={categoryFormOptions}
-            onChange={(value) => setForm((prev) => ({ ...prev, categoryId: String(value) }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Categoria</label>
+            <DashboardFilterSelect
+              value={form.categoryId || undefined}
+              placeholder="Categoria"
+              options={categoryFormOptions}
+              onChange={(value) => setForm((prev) => ({ ...prev, categoryId: String(value) }))}
+            />
+          </div>
 
-          <DashboardFilterSelect
-            value={form.costCenterId || undefined}
-            placeholder="Centro de custo"
-            allowClear
-            options={costCenterFormOptions}
-            onChange={(value) => setForm((prev) => ({ ...prev, costCenterId: String(value || "") }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Centro de custo</label>
+            <DashboardFilterSelect
+              value={form.costCenterId || undefined}
+              placeholder="Centro de custo"
+              allowClear
+              options={costCenterFormOptions}
+              onChange={(value) => setForm((prev) => ({ ...prev, costCenterId: String(value || "") }))}
+            />
+          </div>
 
-          <DashboardFilterSelect
-            value={form.paymentMethodId || undefined}
-            placeholder="Forma de pagamento"
-            allowClear
-            options={paymentMethodFormOptions}
-            onChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                paymentMethodId: String(value || ""),
-                paymentKey: String(value || "") ? prev.paymentKey : ""
-              }))
-            }
-          />
+          <div className="field-block">
+            <label className="field-label">Forma de pagamento</label>
+            <DashboardFilterSelect
+              value={form.paymentMethodId || undefined}
+              placeholder="Forma de pagamento"
+              allowClear
+              options={paymentMethodFormOptions}
+              onChange={(value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  paymentMethodId: String(value || ""),
+                  paymentKey: String(value || "") ? prev.paymentKey : ""
+                }))
+              }
+            />
+          </div>
 
           {isPixForm && (
-            <AppInput
-              placeholder="Chave PIX"
-              value={form.paymentKey}
-              onChange={(event) => setForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
-            />
+            <div className="field-block">
+              <label className="field-label">Chave PIX</label>
+              <AppInput
+                value={form.paymentKey}
+                onChange={(event) => setForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
+              />
+            </div>
           )}
 
           {isBoletoForm && (
@@ -849,19 +903,24 @@ export function FinancialEntriesPage() {
 
           {form.isFixed && (
             <>
-              <DashboardFilterSelect
-                value={form.recurrenceCycle}
-                options={RECURRENCE_OPTIONS}
-                onChange={(value) =>
-                  setForm((prev) => ({ ...prev, recurrenceCycle: value as FinancialRecurrenceCycle }))
-                }
-              />
-              <AppInput
-                type="date"
-                value={form.recurrenceEndDate}
-                onChange={(event) => setForm((prev) => ({ ...prev, recurrenceEndDate: event.target.value }))}
-                placeholder="Fim da recorrencia"
-              />
+              <div className="field-block">
+                <label className="field-label">Ciclo de recorrencia</label>
+                <DashboardFilterSelect
+                  value={form.recurrenceCycle}
+                  options={RECURRENCE_OPTIONS}
+                  onChange={(value) =>
+                    setForm((prev) => ({ ...prev, recurrenceCycle: value as FinancialRecurrenceCycle }))
+                  }
+                />
+              </div>
+              <div className="field-block">
+                <label className="field-label">Fim da recorrencia</label>
+                <AppInput
+                  type="date"
+                  value={form.recurrenceEndDate}
+                  onChange={(event) => setForm((prev) => ({ ...prev, recurrenceEndDate: event.target.value }))}
+                />
+              </div>
             </>
           )}
         </div>
@@ -894,25 +953,41 @@ export function FinancialEntriesPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            type="date"
-            value={payForm.paymentDate}
-            onChange={(event) => setPayForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
-          />
-          <DashboardFilterSelect
-            value={payForm.paymentMethodId || undefined}
-            placeholder="Forma de pagamento"
-            options={paymentMethodPayOptions}
-            onChange={(value) =>
-              setPayForm((prev) => ({ ...prev, paymentMethodId: String(value || ""), paymentKey: prev.paymentKey }))
-            }
-          />
-          {isPixPay && (
+          <div className="field-block">
+            <label className="field-label">Data de pagamento</label>
             <AppInput
-              placeholder="Chave PIX"
-              value={payForm.paymentKey}
-              onChange={(event) => setPayForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
+              type="date"
+              value={payForm.paymentDate}
+              onChange={(event) => setPayForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
             />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Valor pago</label>
+            <AppInput
+              type="number"
+              value={payForm.amountPaid}
+              onChange={(event) => setPayForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Forma de pagamento</label>
+            <DashboardFilterSelect
+              value={payForm.paymentMethodId || undefined}
+              placeholder="Forma de pagamento"
+              options={paymentMethodPayOptions}
+              onChange={(value) =>
+                setPayForm((prev) => ({ ...prev, paymentMethodId: String(value || ""), paymentKey: prev.paymentKey }))
+              }
+            />
+          </div>
+          {isPixPay && (
+            <div className="field-block">
+              <label className="field-label">Chave PIX</label>
+              <AppInput
+                value={payForm.paymentKey}
+                onChange={(event) => setPayForm((prev) => ({ ...prev, paymentKey: event.target.value }))}
+              />
+            </div>
           )}
           <div style={{ gridColumn: "1 / -1" }}>
             <AppFileDragger

@@ -15,7 +15,8 @@ import { durationToMs } from "../../utils/duration";
 function serializeUser(user: {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email: string | null;
   profileId: string;
   profile: {
     key: string;
@@ -28,7 +29,8 @@ function serializeUser(user: {
 }): {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email: string | null;
   profileId: string;
   profileKey: string;
   profileName: string;
@@ -39,6 +41,7 @@ function serializeUser(user: {
   return {
     id: user.id,
     name: user.name,
+    login: user.login,
     email: user.email,
     profileId: user.profileId,
     profileKey: user.profile.key,
@@ -49,9 +52,9 @@ function serializeUser(user: {
   };
 }
 
-export async function login(email: string, password: string) {
+export async function login(login: string, password: string) {
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { login: login.trim().toLowerCase() },
     include: {
       profile: {
         select: {

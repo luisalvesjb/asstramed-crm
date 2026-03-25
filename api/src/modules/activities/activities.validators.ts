@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export const listActivitiesSchema = z.object({
   date: z.coerce.date().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
   status: z.nativeEnum(ActivityStatus).optional(),
   companyId: z.string().uuid().optional(),
   responsibleId: z.string().uuid().optional(),

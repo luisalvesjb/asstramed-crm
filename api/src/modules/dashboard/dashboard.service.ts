@@ -162,14 +162,21 @@ export async function getDashboardActivities(input: {
         }
       }
     }),
-    prisma.activityMessage.findMany({
+    prisma.activity.findMany({
       where: {
-        deletedAt: null,
-        activity: input.companyId
-          ? {
-              companyId: input.companyId
+        companyId: input.companyId,
+        OR: [
+          {
+            description: {
+              not: null
             }
-          : undefined
+          },
+          {
+            title: {
+              not: ""
+            }
+          }
+        ]
       },
       include: {
         createdBy: {
@@ -178,25 +185,17 @@ export async function getDashboardActivities(input: {
             name: true
           }
         },
-        activity: {
+        assignedTo: {
           select: {
             id: true,
-            title: true,
-            status: true,
-            priority: true,
-            assignedTo: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            company: {
-              select: {
-                id: true,
-                code: true,
-                name: true
-              }
-            }
+            name: true
+          }
+        },
+        company: {
+          select: {
+            id: true,
+            code: true,
+            name: true
           }
         }
       },

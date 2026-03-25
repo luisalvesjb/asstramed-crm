@@ -1,6 +1,6 @@
 export interface CreateUserInput {
   name: string;
-  email: string;
+  login: string;
   password: string;
   profileId: string;
   permissionKeys: string[];
@@ -8,13 +8,13 @@ export interface CreateUserInput {
 
 export interface UpdateUserProfileInput {
   name: string;
-  email: string;
+  login: string;
   profileId: string;
 }
 
 export interface UpdateMyProfileInput {
   name: string;
-  email: string;
+  login: string;
 }
 
 export interface ChangeMyPasswordInput {

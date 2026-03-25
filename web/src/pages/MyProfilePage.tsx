@@ -10,7 +10,8 @@ import { resolveAssetUrl } from "../utils/asset-url";
 interface MyProfile {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email?: string | null;
   profileId: string;
   profileKey: string;
   profileName: string;
@@ -34,7 +35,7 @@ export function MyProfilePage() {
 
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -53,7 +54,7 @@ export function MyProfilePage() {
       const response = await api.get<MyProfile>("/users/me/profile");
       setProfile(response.data);
       setName(response.data.name);
-      setEmail(response.data.email);
+      setLoginValue(response.data.login);
     } catch {
       notifyError("Meu perfil", "Nao foi possivel carregar seu perfil.");
     } finally {
@@ -66,8 +67,8 @@ export function MyProfilePage() {
   }, []);
 
   async function handleSaveProfile() {
-    if (!name.trim() || !email.trim()) {
-      notifyError("Meu perfil", "Preencha nome e e-mail.");
+    if (!name.trim() || !loginValue.trim()) {
+      notifyError("Meu perfil", "Preencha nome e login.");
       return;
     }
 
@@ -76,7 +77,7 @@ export function MyProfilePage() {
     try {
       await api.patch("/users/me/profile", {
         name: name.trim(),
-        email: email.trim().toLowerCase()
+        login: loginValue.trim().toLowerCase()
       });
       await Promise.all([refreshProfile(), loadMyProfile()]);
       notifySuccess("Perfil atualizado");
@@ -194,8 +195,14 @@ export function MyProfilePage() {
       <section className="card card-stack">
         <h3>Dados de acesso</h3>
         <div className="form-grid">
-          <AppInput placeholder="Nome" value={name} onChange={(event) => setName(event.target.value)} />
-          <AppInput placeholder="E-mail" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <div className="field-block">
+            <label className="field-label">Nome</label>
+            <AppInput value={name} onChange={(event) => setName(event.target.value)} />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Login</label>
+            <AppInput value={loginValue} onChange={(event) => setLoginValue(event.target.value)} />
+          </div>
         </div>
         <div className="filters-actions">
           <AppButton type="primary" loading={savingProfile} onClick={() => void handleSaveProfile()}>
@@ -231,24 +238,30 @@ export function MyProfilePage() {
       <section className="card card-stack">
         <h3>Alterar senha</h3>
         <div className="form-grid">
-          <AppInput
-            type="password"
-            placeholder="Senha atual"
-            value={currentPassword}
-            onChange={(event) => setCurrentPassword(event.target.value)}
-          />
-          <AppInput
-            type="password"
-            placeholder="Nova senha"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
-          />
-          <AppInput
-            type="password"
-            placeholder="Confirmar nova senha"
-            value={confirmNewPassword}
-            onChange={(event) => setConfirmNewPassword(event.target.value)}
-          />
+          <div className="field-block">
+            <label className="field-label">Senha atual</label>
+            <AppInput
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Nova senha</label>
+            <AppInput
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Confirmar nova senha</label>
+            <AppInput
+              type="password"
+              value={confirmNewPassword}
+              onChange={(event) => setConfirmNewPassword(event.target.value)}
+            />
+          </div>
         </div>
         <div className="filters-actions">
           <AppButton type="primary" loading={savingPassword} onClick={() => void handleChangePassword()}>

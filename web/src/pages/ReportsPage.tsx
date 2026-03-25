@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import { Company } from "../types/api";
-import { AppButton, DashboardFilterSelect, InlineDateNavigator, KpiStatCard } from "../ui/components";
+import { AppButton, AppCheckbox, DashboardFilterSelect, InlineDateNavigator, KpiStatCard } from "../ui/components";
 import { formatCurrency, formatDate } from "../utils/format";
 
 interface ActivityReportItem {
@@ -50,6 +50,7 @@ export function ReportsPage() {
   const [companyId, setCompanyId] = useState("");
   const [startDate, setStartDate] = useState(dateDaysAgo(30));
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [openOnly, setOpenOnly] = useState(false);
 
   const [activities, setActivities] = useState<ActivityReportItem[]>([]);
   const [productivity, setProductivity] = useState<ProductivityItem[]>([]);
@@ -78,7 +79,8 @@ export function ReportsPage() {
       const params = {
         startDate,
         endDate,
-        companyId: companyId || undefined
+        companyId: companyId || undefined,
+        openOnly: openOnly || undefined
       };
 
       const [activitiesResponse, productivityResponse, pendingResponse, contractsResponse] = await Promise.all([
@@ -114,7 +116,8 @@ export function ReportsPage() {
         params: {
           startDate,
           endDate,
-          companyId: companyId || undefined
+          companyId: companyId || undefined,
+          openOnly: openOnly || undefined
         },
         responseType: "blob"
       });
@@ -152,6 +155,10 @@ export function ReportsPage() {
           options={companies.map((company) => ({ value: company.id, label: company.name }))}
           onChange={(value) => setCompanyId((value as string) || "")}
         />
+        <label className="permission-item">
+          <AppCheckbox checked={openOnly} onChange={(event) => setOpenOnly(event.target.checked)} />
+          <span>Em aberto</span>
+        </label>
         <AppButton type="primary" onClick={() => void loadReports()}>
           Aplicar filtros
         </AppButton>

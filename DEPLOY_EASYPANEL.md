@@ -1,11 +1,12 @@
-# Deploy no EasyPanel (Monorepo API + WEB)
+# Deploy no EasyPanel (Monorepo API + CRM + Site)
 
 Repositorio:
 - `git@github.com:luisalvesjb/asstramed-crm.git`
 
 Estrutura:
 - `api` -> Node/Express/Prisma
-- `web` -> React/Vite (build estatico servido por Nginx)
+- `web` -> CRM React/Vite (build estatico servido por Nginx)
+- `site` -> Landing institucional React/Vite (build estatico servido por Nginx)
 
 ## 1) Subir para o GitHub
 
@@ -86,12 +87,30 @@ API_PROXY_TARGET=https://URL_PUBLICA_DA_API
 
 ## 5) Auto deploy por paths monitoradas
 
-Crie dois apps separados e configure filtros de path:
+Crie apps separados e configure filtros de path:
 
 - API app: `api/**`
-- WEB app: `web/**`
+- CRM app: `web/**`
+- SITE app: `site/**`
 
-Assim alteracoes no frontend nao redeployam API e vice-versa.
+Assim alteracoes no frontend institucional nao redeployam CRM e vice-versa.
+
+## 5.1) Criar APP do SITE no EasyPanel
+
+- Tipo: App com Dockerfile
+- Source: GitHub
+- Repo: `git@github.com:luisalvesjb/asstramed-crm.git`
+- Branch: `main`
+- Context/Root Path: `site`
+- Dockerfile path: `Dockerfile`
+- Porta interna: `80`
+- Healthcheck path: `/health`
+
+### Dominios sugeridos
+
+- `www.asstramed.com.br` -> app `site`
+- `crm.asstramed.com.br` -> app `web`
+- `asstramed.com.br` -> redirecionar para `https://www.asstramed.com.br`
 
 ## 6) Migrations e seed
 
@@ -114,4 +133,5 @@ npm run prisma:seed:safe
 ## 8) Observacoes importantes
 
 - Em producao, use sempre `prisma migrate deploy` (nao `prisma migrate dev`).
-- Quando trocar o dominio da API, atualize `API_PROXY_TARGET` no app WEB e redeploy.
+- Quando trocar o dominio da API, atualize `API_PROXY_TARGET` no app WEB/CRM e redeploy.
+- O `site` nao depende de API nem de proxy `/api`.

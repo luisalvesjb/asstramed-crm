@@ -15,7 +15,8 @@ import path from "path";
 type UserWithProfile = {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email: string | null;
   profileId: string;
   isAdmin: boolean;
   avatarPath: string | null;
@@ -36,6 +37,7 @@ function serializeUser(user: UserWithProfile) {
   return {
     id: user.id,
     name: user.name,
+    login: user.login,
     email: user.email,
     profileId: user.profileId,
     profileKey: user.profile.key,
@@ -48,6 +50,10 @@ function serializeUser(user: UserWithProfile) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt ?? null
   };
+}
+
+function normalizeLogin(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 async function getAssignableProfile(profileId: string) {
@@ -92,10 +98,11 @@ export async function listUsers() {
 }
 
 export async function createUser(actorId: string, input: CreateUserInput) {
-  const existing = await prisma.user.findUnique({ where: { email: input.email } });
+  const login = normalizeLogin(input.login);
+  const existing = await prisma.user.findUnique({ where: { login } });
 
   if (existing) {
-    throw new AppError("E-mail ja cadastrado", 409);
+    throw new AppError("Login ja cadastrado", 409);
   }
 
   const profile = await getAssignableProfile(input.profileId);
@@ -104,7 +111,8 @@ export async function createUser(actorId: string, input: CreateUserInput) {
   const user = await prisma.user.create({
     data: {
       name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
+      login,
+      email: null,
       passwordHash,
       profileId: profile.id,
       isAdmin: profile.isAdmin
@@ -159,13 +167,13 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
     throw new AppError("Usuario nao encontrado", 404);
   }
 
-  const nextEmail = input.email.trim().toLowerCase();
+  const nextLogin = normalizeLogin(input.login);
 
-  if (nextEmail !== user.email) {
-    const existingWithEmail = await prisma.user.findUnique({ where: { email: nextEmail } });
+  if (nextLogin !== user.login) {
+    const existingWithLogin = await prisma.user.findUnique({ where: { login: nextLogin } });
 
-    if (existingWithEmail && existingWithEmail.id !== userId) {
-      throw new AppError("E-mail ja cadastrado", 409);
+    if (existingWithLogin && existingWithLogin.id !== userId) {
+      throw new AppError("Login ja cadastrado", 409);
     }
   }
 
@@ -175,7 +183,7 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
     where: { id: userId },
     data: {
       name: input.name.trim(),
-      email: nextEmail,
+      login: nextLogin,
       profileId: profile.id,
       isAdmin: profile.isAdmin
     },
@@ -199,12 +207,14 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
     payload: {
       from: {
         name: user.name,
+        login: user.login,
         email: user.email,
         profileId: user.profileId,
         profileKey: user.profile.key
       },
       to: {
         name: updated.name,
+        login: updated.login,
         email: updated.email,
         profileId: updated.profileId,
         profileKey: updated.profile.key
@@ -256,13 +266,13 @@ export async function updateMyProfile(userId: string, input: UpdateMyProfileInpu
     throw new AppError("Usuario nao encontrado", 404);
   }
 
-  const nextEmail = input.email.trim().toLowerCase();
+  const nextLogin = normalizeLogin(input.login);
 
-  if (nextEmail !== user.email) {
-    const existingWithEmail = await prisma.user.findUnique({ where: { email: nextEmail } });
+  if (nextLogin !== user.login) {
+    const existingWithLogin = await prisma.user.findUnique({ where: { login: nextLogin } });
 
-    if (existingWithEmail && existingWithEmail.id !== userId) {
-      throw new AppError("E-mail ja cadastrado", 409);
+    if (existingWithLogin && existingWithLogin.id !== userId) {
+      throw new AppError("Login ja cadastrado", 409);
     }
   }
 
@@ -270,7 +280,7 @@ export async function updateMyProfile(userId: string, input: UpdateMyProfileInpu
     where: { id: userId },
     data: {
       name: input.name.trim(),
-      email: nextEmail
+      login: nextLogin
     },
     include: {
       profile: {
@@ -290,8 +300,8 @@ export async function updateMyProfile(userId: string, input: UpdateMyProfileInpu
     entity: "USER",
     entityId: userId,
     payload: {
-      from: { name: user.name, email: user.email },
-      to: { name: updated.name, email: updated.email }
+      from: { name: user.name, login: user.login, email: user.email },
+      to: { name: updated.name, login: updated.login, email: updated.email }
     }
   });
 

@@ -28,6 +28,7 @@ interface CreateFinancialEntryInput {
   title: string;
   description?: string;
   amount: number;
+  amountPaid?: number;
   dueDate: Date;
   paymentDate?: Date;
   launchDate?: Date;
@@ -45,6 +46,7 @@ interface UpdateFinancialEntryInput {
   title?: string;
   description?: string;
   amount?: number;
+  amountPaid?: number | null;
   dueDate?: Date;
   paymentDate?: Date | null;
   launchDate?: Date;
@@ -301,12 +303,15 @@ export async function createFinancialEntry(actorId: string, input: CreateFinanci
   }
 
   const status = input.paymentDate ? FinancialEntryStatus.PAGO : input.status ?? FinancialEntryStatus.PENDENTE;
+  const amountPaid =
+    status === FinancialEntryStatus.PAGO ? input.amountPaid ?? input.amount : null;
 
   const entry = await prisma.financialEntry.create({
     data: {
       title: input.title.trim(),
       description: normalizeNullableText(input.description),
       amount: input.amount,
+      amountPaid,
       dueDate: input.dueDate,
       paymentDate: input.paymentDate,
       launchDate: input.launchDate ?? new Date(),
@@ -373,11 +378,19 @@ export async function updateFinancialEntry(
 
   const paymentDate = input.paymentDate === undefined ? current.paymentDate : input.paymentDate;
 
-  const nextStatus = paymentDate
-    ? FinancialEntryStatus.PAGO
-    : input.status ?? current.status;
+  const nextStatus =
+    paymentDate || input.status === FinancialEntryStatus.PAGO
+      ? FinancialEntryStatus.PAGO
+      : input.status ?? current.status;
 
   const dueDate = input.dueDate ?? current.dueDate;
+  const amount = input.amount ?? Number(current.amount);
+  const amountPaid =
+    input.amountPaid === undefined
+      ? nextStatus === FinancialEntryStatus.PAGO
+        ? Number(current.amountPaid ?? current.amount)
+        : null
+      : input.amountPaid;
 
   const updated = await prisma.financialEntry.update({
     where: { id },
@@ -385,6 +398,10 @@ export async function updateFinancialEntry(
       title: input.title?.trim(),
       description: input.description !== undefined ? normalizeNullableText(input.description) : undefined,
       amount: input.amount,
+      amountPaid:
+        nextStatus === FinancialEntryStatus.PAGO
+          ? amountPaid ?? amount
+          : null,
       dueDate,
       paymentDate,
       launchDate: input.launchDate,
@@ -425,6 +442,7 @@ export async function markFinancialEntryAsPaid(
   id: string,
   input: {
     paymentDate?: Date;
+    amountPaid?: number;
     paymentMethodId?: string;
     paymentKey?: string;
   }
@@ -443,6 +461,7 @@ export async function markFinancialEntryAsPaid(
     where: { id },
     data: {
       paymentDate: input.paymentDate ?? new Date(),
+      amountPaid: input.amountPaid ?? Number(current.amount),
       paymentMethodId: input.paymentMethodId ?? current.paymentMethodId,
       paymentKey: input.paymentKey ? normalizeNullableText(input.paymentKey) : current.paymentKey,
       status: FinancialEntryStatus.PAGO

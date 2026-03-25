@@ -12,3 +12,20 @@ de acordo com a forma de pagamento colocar a chave ou boleto ou num conta
 
 em toda acao cadastrar o usuario que fez a acao
 poder excluir categoria e centro de custo
+
+---------------------------------
+
+criar landing page basica assatramed
+link para sistema
+
+tirar filtro por data em atividades
+nao esta aparecendo mensage prioritaria
+adicionar login - tirar email
+escrever labels
+apenas data de vencimento e data de pagamento
+
+
+valor de lancamento e valor pago
+considerar o valor pago
+
+relatorios -> colocar flag em aberto

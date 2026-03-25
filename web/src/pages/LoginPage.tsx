@@ -6,7 +6,7 @@ import { AppButton, AppInput } from "../ui/components";
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function LoginPage() {
     setError(null);
 
     try {
-      await login(email, password);
+      await login(loginValue, password);
       navigate("/");
     } catch {
       setError("Nao foi possivel autenticar. Verifique API e credenciais.");
@@ -32,20 +32,23 @@ export function LoginPage() {
         <h1>Asstramed CRM</h1>
         <p>Acesso ao sistema</p>
         <form onSubmit={handleSubmit} autoComplete="off">
-          <AppInput
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-mail"
-            autoComplete="off"
-          />
-          <AppInput
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Senha"
-            autoComplete="off"
-          />
+          <div className="field-block">
+            <label className="field-label">Login</label>
+            <AppInput
+              value={loginValue}
+              onChange={(e) => setLoginValue(e.target.value)}
+              autoComplete="username"
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Senha</label>
+            <AppInput
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
           {error && <span className="error-text">{error}</span>}
           <AppButton type="primary" htmlType="submit" loading={loading} block>
             {loading ? "Entrando..." : "Entrar"}

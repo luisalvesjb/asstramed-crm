@@ -23,14 +23,14 @@ export function UsersPage() {
 
   const [createForm, setCreateForm] = useState({
     name: "",
-    email: "",
+    login: "",
     password: "",
     profileId: ""
   });
 
   const [editForm, setEditForm] = useState({
     name: "",
-    email: "",
+    login: "",
     profileId: ""
   });
 
@@ -62,9 +62,9 @@ export function UsersPage() {
       render: (_, record) => record.name
     },
     {
-      title: "E-mail",
-      key: "email",
-      render: (_, record) => record.email
+      title: "Login",
+      key: "login",
+      render: (_, record) => record.login
     },
     {
       title: "Perfil",
@@ -173,15 +173,15 @@ export function UsersPage() {
     setSelectedUserId(entry.id);
     setEditForm({
       name: entry.name,
-      email: entry.email,
+      login: entry.login,
       profileId: entry.profileId
     });
     setEditModalOpen(true);
   }
 
   async function createUser() {
-    if (!createForm.name.trim() || !createForm.email.trim() || !createForm.password.trim()) {
-      setError("Preencha nome, e-mail e senha.");
+    if (!createForm.name.trim() || !createForm.login.trim() || !createForm.password.trim()) {
+      setError("Preencha nome, login e senha.");
       return;
     }
 
@@ -196,14 +196,14 @@ export function UsersPage() {
     try {
       await api.post("/users", {
         name: createForm.name.trim(),
-        email: createForm.email.trim().toLowerCase(),
+        login: createForm.login.trim().toLowerCase(),
         password: createForm.password,
         profileId: createForm.profileId,
         permissionKeys: []
       });
 
       notifySuccess("Usuario criado");
-      setCreateForm((prev) => ({ ...prev, name: "", email: "", password: "" }));
+      setCreateForm((prev) => ({ ...prev, name: "", login: "", password: "" }));
       setCreateModalOpen(false);
       await loadUsersAndProfiles();
     } catch (error) {
@@ -222,8 +222,8 @@ export function UsersPage() {
       return;
     }
 
-    if (!editForm.name.trim() || !editForm.email.trim()) {
-      setError("Preencha nome e e-mail.");
+    if (!editForm.name.trim() || !editForm.login.trim()) {
+      setError("Preencha nome e login.");
       return;
     }
 
@@ -238,7 +238,7 @@ export function UsersPage() {
     try {
       await api.patch(`/users/${selectedUser.id}/profile`, {
         name: editForm.name.trim(),
-        email: editForm.email.trim().toLowerCase(),
+        login: editForm.login.trim().toLowerCase(),
         profileId: editForm.profileId
       });
 
@@ -319,28 +319,37 @@ export function UsersPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Nome"
-            value={createForm.name}
-            onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
-          />
-          <AppInput
-            placeholder="E-mail"
-            value={createForm.email}
-            onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Senha"
-            type="password"
-            value={createForm.password}
-            onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
-          />
-          <AppSelect
-            value={createForm.profileId || undefined}
-            placeholder="Selecione o perfil"
-            options={profileOptions}
-            onChange={(value) => setCreateForm((prev) => ({ ...prev, profileId: String(value) }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Nome</label>
+            <AppInput
+              value={createForm.name}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Login</label>
+            <AppInput
+              value={createForm.login}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, login: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Senha</label>
+            <AppInput
+              type="password"
+              value={createForm.password}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Perfil</label>
+            <AppSelect
+              value={createForm.profileId || undefined}
+              placeholder="Selecione o perfil"
+              options={profileOptions}
+              onChange={(value) => setCreateForm((prev) => ({ ...prev, profileId: String(value) }))}
+            />
+          </div>
         </div>
       </AppModal>
 
@@ -364,25 +373,32 @@ export function UsersPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Nome"
-            value={editForm.name}
-            onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
-            disabled={!canEditProfile}
-          />
-          <AppInput
-            placeholder="E-mail"
-            value={editForm.email}
-            onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
-            disabled={!canEditProfile}
-          />
-          <AppSelect
-            value={editForm.profileId || undefined}
-            placeholder="Selecione o perfil"
-            options={profileOptions}
-            onChange={(value) => setEditForm((prev) => ({ ...prev, profileId: String(value) }))}
-            disabled={!canEditProfile}
-          />
+          <div className="field-block">
+            <label className="field-label">Nome</label>
+            <AppInput
+              value={editForm.name}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+              disabled={!canEditProfile}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Login</label>
+            <AppInput
+              value={editForm.login}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, login: event.target.value }))}
+              disabled={!canEditProfile}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Perfil</label>
+            <AppSelect
+              value={editForm.profileId || undefined}
+              placeholder="Selecione o perfil"
+              options={profileOptions}
+              onChange={(value) => setEditForm((prev) => ({ ...prev, profileId: String(value) }))}
+              disabled={!canEditProfile}
+            />
+          </div>
           <div>
             <strong>Status atual:</strong>{" "}
             {selectedUser?.isActive ? (

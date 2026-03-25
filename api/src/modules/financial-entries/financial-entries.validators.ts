@@ -27,6 +27,7 @@ export const createFinancialEntrySchema = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
   amount: z.coerce.number().positive(),
+  amountPaid: z.coerce.number().nonnegative().optional(),
   dueDate: z.coerce.date(),
   paymentDate: z.coerce.date().optional(),
   launchDate: z.coerce.date().optional(),
@@ -44,6 +45,7 @@ export const updateFinancialEntrySchema = z.object({
   title: z.string().min(2).optional(),
   description: z.string().optional(),
   amount: z.coerce.number().positive().optional(),
+  amountPaid: z.coerce.number().nonnegative().nullable().optional(),
   dueDate: z.coerce.date().optional(),
   paymentDate: z.coerce.date().nullable().optional(),
   launchDate: z.coerce.date().optional(),
@@ -59,6 +61,7 @@ export const updateFinancialEntrySchema = z.object({
 
 export const payFinancialEntrySchema = z.object({
   paymentDate: z.coerce.date().optional(),
+  amountPaid: z.coerce.number().nonnegative().optional(),
   paymentMethodId: z.string().uuid().optional(),
   paymentKey: z.string().optional()
 });

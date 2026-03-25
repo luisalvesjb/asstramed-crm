@@ -3,8 +3,8 @@ import { loginSchema, refreshSchema } from "./auth.validators";
 import * as authService from "./auth.service";
 
 export async function login(req: Request, res: Response): Promise<void> {
-  const { email, password } = loginSchema.parse(req.body);
-  const result = await authService.login(email, password);
+  const { login, password } = loginSchema.parse(req.body);
+  const result = await authService.login(login, password);
   res.status(200).json(result);
 }
 

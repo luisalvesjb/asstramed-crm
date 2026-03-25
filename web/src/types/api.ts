@@ -3,7 +3,8 @@ export type ActivityStatus = "PENDENTE" | "EM_EXECUCAO" | "CONCLUIDA" | "CANCELA
 export interface ApiUser {
   id: string;
   name: string;
-  email: string;
+  login: string;
+  email?: string | null;
   profileId: string;
   profileKey: string;
   profileName: string;
@@ -108,26 +109,23 @@ export interface ActivityMessage {
 
 export interface ActivityInteraction {
   id: string;
-  content: string;
+  title: string;
+  description?: string | null;
+  priority: MessagePriority;
+  status: ActivityStatus;
   createdAt: string;
   createdBy: {
     id: string;
     name: string;
   };
-  activity: {
+  assignedTo: {
     id: string;
-    title: string;
-    status: ActivityStatus;
-    priority: MessagePriority;
-    assignedTo: {
-      id: string;
-      name: string;
-    };
-    company: {
-      id: string;
-      code?: number;
-      name: string;
-    };
+    name: string;
+  };
+  company: {
+    id: string;
+    code?: number;
+    name: string;
   };
 }
 
@@ -248,6 +246,7 @@ export interface FinancialEntry {
   title: string;
   description?: string | null;
   amount: string | number;
+  amountPaid?: string | number | null;
   status: FinancialEntryStatus;
   dueDate: string;
   paymentDate?: string | null;
