@@ -160,6 +160,7 @@ export interface CompanyContact {
   name: string;
   role?: string | null;
   phone?: string | null;
+  hasWhatsapp?: boolean;
   email?: string | null;
   createdAt: string;
 }

@@ -134,15 +134,16 @@ model Company {
 }
 
 model CompanyContact {
-  id        String   @id @default(uuid())
-  companyId String
-  name      String
-  role      String?
-  phone     String?
-  email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  role        String?
+  phone       String?
+  hasWhatsapp Boolean  @default(false)
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model CompanyAddress {

@@ -7,6 +7,31 @@ Projeto completo em `/Users/luisalves/Documents/workspace/personal/asstramed-crm
 
 ## Entrega concluida
 
+### Atualizacao 2026-03-25 (cadastro unificado de empresa)
+
+- Tela de `Empresas` agora usa um modal unificado para `cadastrar` e `editar`.
+- O mesmo modal concentra:
+  - dados principais da empresa
+  - informacoes pessoais
+  - endereco
+  - contatos
+  - logo com recorte
+  - documentos (fila de upload + listagem/arquivamento no modo edicao)
+- A edicao reutiliza exatamente o mesmo fluxo visual do cadastro, com pre-preenchimento dos dados atuais.
+- `Contrato` foi mantido fora desse modal, por decisao de escopo, para nao fragilizar o fluxo.
+- Ajustes de UX no modal unificado:
+  - campo `Documento` renomeado para `CNPJ/CPF`, com mascara dinamica
+  - telefone principal da empresa com mascara
+  - `CEP` movido para o topo da aba de endereco
+  - ao digitar `CEP`, o sistema consulta o ViaCEP, preenche logradouro/bairro/cidade/UF e foca em `Numero`
+  - contatos agora usam mascara de celular e flag `WhatsApp`
+- Backend ampliado para suportar o modal:
+  - `PUT /api/companies/:id`
+  - `PUT /api/companies/:id/contacts`
+- Schema ampliado em `CompanyContact` com `hasWhatsapp`
+- Migration adicionada:
+  - `api/prisma/migrations/20260325093000_add_company_contact_whatsapp_flag`
+
 ### Atualizacao 2026-03-17 (dashboard + mensagens + financeiro)
 
 - Filtro de empresa do dashboard sincronizado com o seletor global (topbar):

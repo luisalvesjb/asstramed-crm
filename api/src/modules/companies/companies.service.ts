@@ -59,6 +59,47 @@ export async function createCompany(
   return company;
 }
 
+export async function updateCompany(
+  actorId: string,
+  companyId: string,
+  input: {
+    name: string;
+    legalName?: string;
+    city?: string;
+    state?: string;
+    status?: string;
+    nextCycleDate?: Date;
+  }
+) {
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+
+  if (!company) {
+    throw new AppError("Empresa nao encontrada", 404);
+  }
+
+  const updated = await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      name: input.name,
+      legalName: normalizeNullableText(input.legalName),
+      city: normalizeNullableText(input.city),
+      state: normalizeNullableText(input.state),
+      status: input.status ?? "ATIVA",
+      nextCycleDate: input.nextCycleDate ?? null
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "COMPANY_UPDATED",
+    entity: "COMPANY",
+    entityId: companyId,
+    payload: input
+  });
+
+  return updated;
+}
+
 export async function getCompanyById(companyId: string) {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
@@ -123,6 +164,7 @@ export async function addCompanyContact(
     name: string;
     role?: string;
     phone?: string;
+    hasWhatsapp?: boolean;
     email?: string;
   }
 ) {
@@ -138,6 +180,7 @@ export async function addCompanyContact(
       name: input.name,
       role: input.role,
       phone: input.phone,
+      hasWhatsapp: input.hasWhatsapp ?? false,
       email: input.email
     }
   });
@@ -151,6 +194,65 @@ export async function addCompanyContact(
   });
 
   return contact;
+}
+
+export async function replaceCompanyContacts(
+  actorId: string,
+  companyId: string,
+  contacts: Array<{
+    name: string;
+    role?: string;
+    phone?: string;
+    hasWhatsapp?: boolean;
+    email?: string;
+  }>
+) {
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+
+  if (!company) {
+    throw new AppError("Empresa nao encontrada", 404);
+  }
+
+  const sanitizedContacts = contacts
+    .map((contact) => ({
+      name: contact.name.trim(),
+      role: normalizeNullableText(contact.role),
+      phone: normalizeNullableText(contact.phone),
+      hasWhatsapp: Boolean(contact.hasWhatsapp),
+      email: normalizeNullableText(contact.email)
+    }))
+    .filter((contact) => contact.name.length >= 2);
+
+  await prisma.$transaction([
+    prisma.companyContact.deleteMany({
+      where: { companyId }
+    }),
+    ...(sanitizedContacts.length
+      ? [
+          prisma.companyContact.createMany({
+            data: sanitizedContacts.map((contact) => ({
+              companyId,
+              ...contact
+            }))
+          })
+        ]
+      : [])
+  ]);
+
+  await registerAuditLog({
+    actorId,
+    action: "COMPANY_CONTACTS_REPLACED",
+    entity: "COMPANY",
+    entityId: companyId,
+    payload: {
+      count: sanitizedContacts.length
+    }
+  });
+
+  return prisma.companyContact.findMany({
+    where: { companyId },
+    orderBy: { createdAt: "asc" }
+  });
 }
 
 export async function upsertCompanyAddress(

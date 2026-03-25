@@ -14,11 +14,18 @@ export const createCompanySchema = z.object({
   nextCycleDate: z.coerce.date().optional()
 });
 
+export const updateCompanySchema = createCompanySchema;
+
 export const addCompanyContactSchema = z.object({
   name: z.string().min(2),
   role: z.string().optional(),
   phone: z.string().optional(),
+  hasWhatsapp: z.coerce.boolean().optional(),
   email: z.string().email().optional()
+});
+
+export const replaceCompanyContactsSchema = z.object({
+  contacts: z.array(addCompanyContactSchema).default([])
 });
 
 export const upsertCompanyAddressSchema = z.object({

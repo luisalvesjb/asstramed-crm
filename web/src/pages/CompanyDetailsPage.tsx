@@ -233,7 +233,16 @@ export function CompanyDetailsPage() {
   const contactsColumns: TableProps<CompanyContact>["columns"] = [
     { title: "Nome", key: "name", render: (_, record) => record.name },
     { title: "Cargo", key: "role", render: (_, record) => record.role ?? "-" },
-    { title: "Telefone", key: "phone", render: (_, record) => record.phone ?? "-" },
+    {
+      title: "Celular",
+      key: "phone",
+      render: (_, record) => (
+        <div className="filters-actions">
+          <span>{record.phone ?? "-"}</span>
+          {record.hasWhatsapp ? <AppTag color="green">WhatsApp</AppTag> : null}
+        </div>
+      )
+    },
     { title: "Email", key: "email", render: (_, record) => record.email ?? "-" }
   ];
 
@@ -533,7 +542,7 @@ export function CompanyDetailsPage() {
           </div>
 
           <div className="company-info-grid">
-            <div><strong>Documento:</strong> {company.personalDocument ?? "-"}</div>
+            <div><strong>CNPJ/CPF:</strong> {company.personalDocument ?? "-"}</div>
             <div><strong>E-mail:</strong> {company.personalEmail ?? "-"}</div>
             <div><strong>Telefone:</strong> {company.personalPhone ?? "-"}</div>
             <div><strong>Responsavel:</strong> {company.personalResponsible ?? "-"}</div>

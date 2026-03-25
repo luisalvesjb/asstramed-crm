@@ -298,7 +298,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="selected-company-meta">
-            <span>Documento: {selectedCompany.personalDocument || "-"}</span>
+            <span>CNPJ/CPF: {selectedCompany.personalDocument || "-"}</span>
             <span>E-mail: {selectedCompany.personalEmail || "-"}</span>
             <span>Telefone: {selectedCompany.personalPhone || "-"}</span>
           </div>

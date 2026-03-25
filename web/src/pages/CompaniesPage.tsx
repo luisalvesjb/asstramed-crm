@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TableProps } from "antd";
 import { PERMISSIONS } from "../constants/permissions";
@@ -7,36 +7,32 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   clearCompaniesError,
   closeCompaniesModal,
-  createCompany,
   fetchCompanies,
   openCompaniesModal,
   resetCompaniesFilters,
   setCompaniesFilters,
-  setCompaniesForm,
   setCompaniesPage,
   setCompaniesPageSize
 } from "../store/slices/companiesSlice";
 import { Company } from "../types/api";
-import {
-  AppButton,
-  AppInput,
-  AppModal,
-  AppPagination,
-  AppTable,
-  DashboardFilterSelect
-} from "../ui/components";
+import { AppButton, AppInput, AppPagination, AppTable, DashboardFilterSelect } from "../ui/components";
 import { notifyError, notifySuccess } from "../ui/feedback/notifications";
 import { formatDate } from "../utils/format";
 import { resolveCompanyLogoUrl } from "../store/slices/companyDetailsSlice";
+import { CompanyUpsertModal } from "../features/company/components/CompanyUpsertModal";
 
 export function CompaniesPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { hasPermission } = useAuth();
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
 
-  const { items, loading, saving, error, modalOpen, filters, form, page, pageSize } = useAppSelector(
+  const { items, loading, error, modalOpen, filters, page, pageSize } = useAppSelector(
     (state) => state.companies
   );
+
+  const canReadDocuments = hasPermission(PERMISSIONS.DOCUMENTS_READ);
+  const canWriteDocuments = hasPermission(PERMISSIONS.DOCUMENTS_WRITE);
 
   useEffect(() => {
     void dispatch(fetchCompanies());
@@ -97,7 +93,19 @@ export function CompaniesPage() {
       title: "Acoes",
       key: "actions",
       render: (_, record) => (
-        <AppButton onClick={() => navigate(`/empresas/${record.id}`)}>Ver detalhes</AppButton>
+        <div className="filters-actions">
+          {hasPermission(PERMISSIONS.COMPANIES_WRITE) && (
+            <AppButton
+              onClick={() => {
+                setEditingCompanyId(record.id);
+                dispatch(openCompaniesModal());
+              }}
+            >
+              Editar
+            </AppButton>
+          )}
+          <AppButton onClick={() => navigate(`/empresas/${record.id}`)}>Ver detalhes</AppButton>
+        </div>
       )
     }
   ];
@@ -107,7 +115,13 @@ export function CompaniesPage() {
       <div className="page-header">
         <h1>Empresas</h1>
         {hasPermission(PERMISSIONS.COMPANIES_WRITE) && (
-          <AppButton type="primary" onClick={() => dispatch(openCompaniesModal())}>
+          <AppButton
+            type="primary"
+            onClick={() => {
+              setEditingCompanyId(null);
+              dispatch(openCompaniesModal());
+            }}
+          >
             Nova Empresa
           </AppButton>
         )}
@@ -169,66 +183,26 @@ export function CompaniesPage() {
         />
       </div>
 
-      <AppModal
+      <CompanyUpsertModal
         open={modalOpen}
-        title="Nova Empresa"
-        onCancel={() => dispatch(closeCompaniesModal())}
-        footer={[
-          <AppButton key="cancel" onClick={() => dispatch(closeCompaniesModal())}>
-            Cancelar
-          </AppButton>,
-          <AppButton
-            key="save"
-            type="primary"
-            loading={saving}
-            onClick={async () => {
-              const result = await dispatch(createCompany());
-              if (createCompany.fulfilled.match(result)) {
-                notifySuccess("Empresa criada", "Empresa cadastrada com sucesso.");
-              }
-            }}
-          >
-            Salvar
-          </AppButton>
-        ]}
-      >
-        <div className="form-grid">
-          <AppInput
-            placeholder="Nome"
-            value={form.name}
-            onChange={(event) => dispatch(setCompaniesForm({ name: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Razao social"
-            value={form.legalName}
-            onChange={(event) => dispatch(setCompaniesForm({ legalName: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Cidade"
-            value={form.city}
-            onChange={(event) => dispatch(setCompaniesForm({ city: event.target.value }))}
-          />
-          <AppInput
-            placeholder="UF"
-            maxLength={2}
-            value={form.state}
-            onChange={(event) => dispatch(setCompaniesForm({ state: event.target.value.toUpperCase() }))}
-          />
-          <DashboardFilterSelect
-            value={form.status}
-            options={[
-              { label: "Ativa", value: "ATIVA" },
-              { label: "Inativa", value: "INATIVA" }
-            ]}
-            onChange={(value) => dispatch(setCompaniesForm({ status: String(value) }))}
-          />
-          <AppInput
-            type="date"
-            value={form.nextCycleDate}
-            onChange={(event) => dispatch(setCompaniesForm({ nextCycleDate: event.target.value }))}
-          />
-        </div>
-      </AppModal>
+        mode={editingCompanyId ? "edit" : "create"}
+        companyId={editingCompanyId}
+        canReadDocuments={canReadDocuments}
+        canWriteDocuments={canWriteDocuments}
+        onCancel={() => {
+          setEditingCompanyId(null);
+          dispatch(closeCompaniesModal());
+        }}
+        onSaved={async () => {
+          setEditingCompanyId(null);
+          dispatch(closeCompaniesModal());
+          await dispatch(fetchCompanies()).unwrap();
+          notifySuccess(
+            editingCompanyId ? "Empresa atualizada" : "Empresa criada",
+            editingCompanyId ? "Cadastro unificado atualizado com sucesso." : "Empresa cadastrada com sucesso."
+          );
+        }}
+      />
     </div>
   );
 }

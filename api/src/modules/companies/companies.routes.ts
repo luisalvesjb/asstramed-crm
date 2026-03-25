@@ -11,11 +11,17 @@ companiesRoutes.use(authMiddleware);
 
 companiesRoutes.get("/", permissionMiddleware([PERMISSIONS.COMPANIES_READ]), companiesController.listCompanies);
 companiesRoutes.post("/", permissionMiddleware([PERMISSIONS.COMPANIES_WRITE]), companiesController.createCompany);
+companiesRoutes.put("/:id", permissionMiddleware([PERMISSIONS.COMPANIES_WRITE]), companiesController.updateCompany);
 companiesRoutes.get("/:id", permissionMiddleware([PERMISSIONS.COMPANIES_READ]), companiesController.getCompanyById);
 companiesRoutes.post(
   "/:id/contacts",
   permissionMiddleware([PERMISSIONS.COMPANIES_WRITE]),
   companiesController.addCompanyContact
+);
+companiesRoutes.put(
+  "/:id/contacts",
+  permissionMiddleware([PERMISSIONS.COMPANIES_WRITE]),
+  companiesController.replaceCompanyContacts
 );
 companiesRoutes.put(
   "/:id/address",
