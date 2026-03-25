@@ -1,4 +1,11 @@
+import logoImage from "../../assets/img/logo.png";
+
 export default function LandingPageAsstramed() {
+  const whatsappMessage = encodeURIComponent(
+    "Olá, vim pelo site da Asstramed e gostaria de solicitar uma proposta."
+  );
+  const whatsappUrl = `https://wa.me/5565996947950?text=${whatsappMessage}`;
+
   const brand = {
     primary: '#123B6D',
     primaryDark: '#0B2747',
@@ -88,12 +95,12 @@ export default function LandingPageAsstramed() {
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-10 lg:px-12">
           <div className="flex items-center gap-4">
-            <div
-              className="flex h-14 w-44 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white text-sm font-medium text-slate-500"
-              aria-label="Espaço reservado para logo PNG da ASSTRAMED"
-            >
-              Logo PNG
-            </div>
+            <img
+              src={logoImage}
+              alt="Asstramed"
+              className="h-12 w-auto md:h-14"
+              style={{ maxWidth: "220px" }}
+            />
           </div>
 
           <div className="flex items-center gap-3">
@@ -106,12 +113,15 @@ export default function LandingPageAsstramed() {
             >
               Área restrita
             </a>
-            <button
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
               className="rounded-2xl px-5 py-2.5 text-sm font-medium text-white shadow-lg transition hover:-translate-y-0.5"
               style={{ backgroundColor: brand.primary }}
             >
               Solicitar proposta
-            </button>
+            </a>
           </div>
         </div>
       </header>
@@ -141,15 +151,23 @@ export default function LandingPageAsstramed() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <button
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
                 className="rounded-2xl bg-white px-6 py-3 text-sm font-medium shadow-lg transition hover:-translate-y-0.5"
                 style={{ color: brand.primaryDark }}
               >
                 Solicitar proposta
-              </button>
-              <button className="rounded-2xl border border-white/25 px-6 py-3 text-sm font-medium text-white transition hover:bg-white/10">
+              </a>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-white/25 px-6 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+              >
                 Falar no WhatsApp
-              </button>
+              </a>
             </div>
 
             <div className="mt-10 grid max-w-xl grid-cols-2 gap-4 md:grid-cols-3">
@@ -348,17 +366,19 @@ export default function LandingPageAsstramed() {
               <div className="text-lg font-semibold">Contato institucional</div>
               <div className="mt-5 space-y-3 text-sm leading-7 text-slate-600">
                 <p>Avenida Coronel Escolástico nº 365, Bairro Bandeirantes, Cuiabá - MT</p>
-                <p>WhatsApp: (65) 3027-1403</p>
+                <p>WhatsApp: +55 65 99694-7950</p>
                 <p>E-mail: asstra@asstramed.com.br</p>
                 <p>CEO: Elson Pedro Rosa</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
-                <button className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:-translate-y-0.5">
-                  Pedir orçamento
-                </button>
-                <button className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100">
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
                   Abrir WhatsApp
-                </button>
+                </a>
               </div>
             </div>
           </div>
