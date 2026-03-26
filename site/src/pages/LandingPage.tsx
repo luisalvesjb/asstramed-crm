@@ -4,7 +4,7 @@ export default function LandingPageAsstramed() {
   const whatsappMessage = encodeURIComponent(
     "Olá, vim pelo site da Asstramed e gostaria de solicitar uma proposta."
   );
-  const whatsappUrl = `https://wa.me/5565996947950?text=${whatsappMessage}`;
+  const whatsappUrl = `https://wa.me/5565996946496?text=${whatsappMessage}`;
 
   const brand = {
     primary: '#123B6D',
@@ -95,12 +95,12 @@ export default function LandingPageAsstramed() {
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-10 lg:px-12">
           <div className="flex items-center gap-4">
-            <img
-              src={logoImage}
-              alt="Asstramed"
-              className="h-12 w-auto md:h-14"
-              style={{ maxWidth: "220px" }}
-            />
+              <img
+                src={logoImage}
+                alt="Asstramed"
+                className="h-14 w-auto md:h-16"
+                style={{ maxWidth: "260px" }}
+              />
           </div>
 
           <div className="flex items-center gap-3">
@@ -366,8 +366,9 @@ export default function LandingPageAsstramed() {
               <div className="text-lg font-semibold">Contato institucional</div>
               <div className="mt-5 space-y-3 text-sm leading-7 text-slate-600">
                 <p>Avenida Coronel Escolástico nº 365, Bairro Bandeirantes, Cuiabá - MT</p>
-                <p>WhatsApp: +55 65 99694-7950</p>
-                <p>E-mail: asstra@asstramed.com.br</p>
+                <p>Telefone: (65) 3027-1403</p>
+                <p>WhatsApp: (65) 99694-6496</p>
+                <p>E-mail: sac@asstramed.com.br</p>
                 <p>CEO: Elson Pedro Rosa</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
