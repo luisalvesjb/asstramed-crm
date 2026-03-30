@@ -29,3 +29,26 @@ valor de lancamento e valor pago
 considerar o valor pago
 
 relatorios -> colocar flag em aberto
+
+
+
+------------
+
+colocaR mascara
+status automatico e nao aleravel
+colocar centro de custo antes
+
+ordem
+titulo 
+descricao
+status
+data/hora lan
+centro e categoria
+valor 
+dt venc - nao e data parcela
+forma
+dt pgm
+valor pago 
+em baixo num parcelas
+
+caixa diario desvinculado lancamentos

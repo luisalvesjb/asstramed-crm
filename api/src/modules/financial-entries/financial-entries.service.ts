@@ -33,7 +33,6 @@ interface CreateFinancialEntryInput {
   installmentCount: number;
   installmentDates?: Date[];
   paymentDate?: Date;
-  status?: FinancialEntryStatus;
   categoryId: string;
   costCenterId?: string;
   paymentMethodId?: string;
@@ -47,7 +46,6 @@ interface UpdateFinancialEntryInput {
   amountPaid?: number | null;
   dueDate?: Date;
   paymentDate?: Date | null;
-  status?: FinancialEntryStatus;
   categoryId?: string;
   costCenterId?: string | null;
   paymentMethodId?: string | null;
@@ -175,34 +173,86 @@ async function validateReferences(input: {
 function resolveInstallmentDates(input: CreateFinancialEntryInput): Date[] {
   if (input.installmentCount <= 1) {
     if (!input.dueDate) {
-      throw new AppError("Informe a data da parcela", 422);
+      throw new AppError("Informe a data de vencimento", 422);
     }
 
     return [input.dueDate];
   }
 
   if (!input.installmentDates || input.installmentDates.length !== input.installmentCount) {
-    throw new AppError("Preencha a data de todas as parcelas", 422);
+    throw new AppError("Preencha a data de vencimento de todas as parcelas", 422);
   }
 
   return input.installmentDates;
 }
 
-async function syncOverdueStatuses(): Promise<void> {
-  const now = new Date();
+export async function syncOverdueStatuses(): Promise<void> {
+  const today = startOfDay(new Date());
 
   await prisma.financialEntry.updateMany({
     where: {
       deletedAt: null,
-      status: FinancialEntryStatus.PENDENTE,
+      status: {
+        not: FinancialEntryStatus.CANCELADO
+      },
+      paymentDate: {
+        not: null
+      }
+    },
+    data: {
+      status: FinancialEntryStatus.PAGO
+    }
+  });
+
+  await prisma.financialEntry.updateMany({
+    where: {
+      deletedAt: null,
+      status: {
+        in: [FinancialEntryStatus.PENDENTE, FinancialEntryStatus.VENCIDO]
+      },
+      paymentDate: null,
       dueDate: {
-        lt: now
+        lt: today
       }
     },
     data: {
       status: FinancialEntryStatus.VENCIDO
     }
   });
+
+  await prisma.financialEntry.updateMany({
+    where: {
+      deletedAt: null,
+      status: {
+        in: [FinancialEntryStatus.PENDENTE, FinancialEntryStatus.VENCIDO]
+      },
+      paymentDate: null,
+      dueDate: {
+        gte: today
+      }
+    },
+    data: {
+      status: FinancialEntryStatus.PENDENTE
+    }
+  });
+}
+
+function resolveCalculatedStatus(input: {
+  dueDate: Date;
+  paymentDate?: Date | null;
+  currentStatus?: FinancialEntryStatus;
+}): FinancialEntryStatus {
+  if (input.currentStatus === FinancialEntryStatus.CANCELADO) {
+    return FinancialEntryStatus.CANCELADO;
+  }
+
+  if (input.paymentDate) {
+    return FinancialEntryStatus.PAGO;
+  }
+
+  return startOfDay(input.dueDate) < startOfDay(new Date())
+    ? FinancialEntryStatus.VENCIDO
+    : FinancialEntryStatus.PENDENTE;
 }
 
 export async function ensureRecurringEntriesGenerated(untilDate: Date): Promise<void> {
@@ -337,7 +387,10 @@ export async function createFinancialEntry(actorId: string, input: CreateFinanci
     throw new AppError("Categoria financeira invalida", 422);
   }
 
-  const status = input.paymentDate ? FinancialEntryStatus.PAGO : input.status ?? FinancialEntryStatus.PENDENTE;
+  const status = resolveCalculatedStatus({
+    dueDate: installmentDates[0],
+    paymentDate: input.paymentDate
+  });
   const amountPaid =
     status === FinancialEntryStatus.PAGO ? input.amountPaid ?? input.amount : null;
 
@@ -383,7 +436,10 @@ export async function createFinancialEntry(actorId: string, input: CreateFinanci
           dueDate: installmentDates[index],
           paymentDate: input.paymentDate,
           launchDate,
-          status,
+          status: resolveCalculatedStatus({
+            dueDate: installmentDates[index],
+            paymentDate: input.paymentDate
+          }),
           categoryId,
           costCenterId: references.costCenterId,
           paymentMethodId: references.paymentMethodId,
@@ -441,13 +497,12 @@ export async function updateFinancialEntry(
   });
 
   const paymentDate = input.paymentDate === undefined ? current.paymentDate : input.paymentDate;
-
-  const nextStatus =
-    paymentDate || input.status === FinancialEntryStatus.PAGO
-      ? FinancialEntryStatus.PAGO
-      : input.status ?? current.status;
-
   const dueDate = input.dueDate ?? current.dueDate;
+  const nextStatus = resolveCalculatedStatus({
+    dueDate,
+    paymentDate,
+    currentStatus: current.status
+  });
   const amount = input.amount ?? Number(current.amount);
   const amountPaid =
     input.amountPaid === undefined

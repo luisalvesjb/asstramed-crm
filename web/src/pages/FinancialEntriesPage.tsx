@@ -3,7 +3,6 @@ import { TableProps } from "antd";
 import { AxiosError } from "axios";
 import { api } from "../services/api";
 import {
-  CashOverviewResponse,
   CostCenter,
   FinancialCategory,
   FinancialEntry,
@@ -16,6 +15,7 @@ import {
   AppInput,
   AppModal,
   AppTable,
+  AppTextArea,
   AppTag,
   DashboardFilterSelect,
   KpiStatCard
@@ -23,8 +23,11 @@ import {
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { resolveAssetUrl } from "../utils/asset-url";
-import { useAuth } from "../context/AuthContext";
-import { PERMISSIONS } from "../constants/permissions";
+import {
+  formatCurrencyInput,
+  formatCurrencyValueInput,
+  parseCurrencyInput
+} from "../utils/masks";
 
 interface EntryFormState {
   title: string;
@@ -35,7 +38,6 @@ interface EntryFormState {
   installmentDates: string[];
   paymentDate: string;
   amountPaid: string;
-  status: FinancialEntryStatus;
   categoryId: string;
   costCenterId: string;
   paymentMethodId: string;
@@ -103,7 +105,6 @@ const INITIAL_FORM: EntryFormState = {
   installmentDates: [],
   paymentDate: "",
   amountPaid: "",
-  status: "PENDENTE",
   categoryId: "",
   costCenterId: "",
   paymentMethodId: "",
@@ -129,13 +130,28 @@ function resizeInstallmentDates(current: string[], nextCount: number): string[] 
   return Array.from({ length: nextCount }, (_, index) => current[index] ?? "");
 }
 
+function resolveAutomaticStatus(input: { dueDate?: string; paymentDate?: string }): FinancialEntryStatus {
+  if (input.paymentDate) {
+    return "PAGO";
+  }
+
+  if (input.dueDate) {
+    const dueDate = new Date(`${input.dueDate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (!Number.isNaN(dueDate.getTime()) && dueDate < today) {
+      return "VENCIDO";
+    }
+  }
+
+  return "PENDENTE";
+}
+
 export function FinancialEntriesPage() {
-  const { hasPermission } = useAuth();
-  const canReadCash = hasPermission(PERMISSIONS.FINANCE_CASH_READ);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
-  const [cashOverview, setCashOverview] = useState<CashOverviewResponse | null>(null);
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -262,6 +278,10 @@ export function FinancialEntriesPage() {
   );
 
   const installmentCount = Number(form.installmentCount || "1");
+  const automaticStatus = resolveAutomaticStatus({
+    dueDate: form.dueDate,
+    paymentDate: form.paymentDate
+  });
 
   const columns: TableProps<FinancialEntry>["columns"] = [
     {
@@ -440,20 +460,6 @@ export function FinancialEntriesPage() {
     }
   }
 
-  async function loadCashOverview() {
-    if (!canReadCash) {
-      setCashOverview(null);
-      return;
-    }
-
-    try {
-      const response = await api.get<CashOverviewResponse>("/financial/cash/overview");
-      setCashOverview(response.data);
-    } catch {
-      setCashOverview(null);
-    }
-  }
-
   useEffect(() => {
     void (async () => {
       try {
@@ -462,9 +468,9 @@ export function FinancialEntriesPage() {
         notifyError("Financeiro", "Falha ao carregar configuracoes financeiras.");
       }
 
-      await Promise.all([loadEntries(), loadCashOverview()]);
+      await loadEntries();
     })();
-  }, [canReadCash]);
+  }, []);
 
   function openCreate() {
     setEditingEntryId(null);
@@ -479,13 +485,12 @@ export function FinancialEntriesPage() {
     setForm({
       title: entry.title,
       description: entry.description ?? "",
-      amount: String(entry.amount ?? ""),
+      amount: formatCurrencyValueInput(entry.amount),
       dueDate: toInputDate(entry.dueDate),
       installmentCount: String(entry.installmentCount ?? 1),
       installmentDates: [],
       paymentDate: toInputDate(entry.paymentDate),
-      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : "",
-      status: entry.status,
+      amountPaid: formatCurrencyValueInput(entry.amountPaid),
       categoryId: entry.categoryId,
       costCenterId: entry.costCenterId ?? "",
       paymentMethodId: entry.paymentMethodId ?? "",
@@ -500,7 +505,7 @@ export function FinancialEntriesPage() {
     setPayingEntryId(entry.id);
     setPayForm({
       paymentDate: todayInputDate(),
-      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : String(entry.amount ?? ""),
+      amountPaid: formatCurrencyValueInput(entry.amountPaid ?? entry.amount),
       paymentMethodId: entry.paymentMethodId ?? "",
       paymentKey: entry.paymentKey ?? ""
     });
@@ -509,18 +514,21 @@ export function FinancialEntriesPage() {
   }
 
   async function saveEntry() {
-    if (!form.title.trim() || !form.amount || !form.categoryId || !form.costCenterId) {
+    const amount = parseCurrencyInput(form.amount);
+    const amountPaid = parseCurrencyInput(form.amountPaid);
+
+    if (!form.title.trim() || amount === null || !form.categoryId || !form.costCenterId) {
       notifyError("Financeiro", "Preencha titulo, valor, centro de custo e categoria.");
       return;
     }
 
     if (!editingEntryId && installmentCount <= 1 && !form.dueDate) {
-      notifyError("Financeiro", "Informe a data da parcela.");
+      notifyError("Financeiro", "Informe a data de vencimento.");
       return;
     }
 
     if (!editingEntryId && installmentCount > 1 && form.installmentDates.some((item) => !item)) {
-      notifyError("Financeiro", "Preencha a data de todas as parcelas.");
+      notifyError("Financeiro", "Preencha a data de vencimento de todas as parcelas.");
       return;
     }
 
@@ -544,14 +552,13 @@ export function FinancialEntriesPage() {
       const payload = {
         title: form.title,
         description: form.description,
-        amount: Number(form.amount),
-        amountPaid: form.amountPaid ? Number(form.amountPaid) : undefined,
+        amount,
+        amountPaid: amountPaid ?? undefined,
         dueDate: installmentCount <= 1 ? form.dueDate : undefined,
         installmentCount,
         installmentDates:
           !editingEntryId && installmentCount > 1 ? form.installmentDates.filter(Boolean) : undefined,
         paymentDate: form.paymentDate || undefined,
-        status: form.status,
         categoryId: form.categoryId,
         costCenterId: form.costCenterId || undefined,
         paymentMethodId: form.paymentMethodId || undefined,
@@ -593,7 +600,7 @@ export function FinancialEntriesPage() {
       setModalOpen(false);
       setBankSlipFile(null);
       setPaymentReceiptFile(null);
-      await Promise.all([loadEntries(), loadCashOverview()]);
+      await loadEntries();
     } catch (error) {
       const message =
         error instanceof AxiosError
@@ -621,9 +628,11 @@ export function FinancialEntriesPage() {
     }
 
     try {
+      const amountPaid = parseCurrencyInput(payForm.amountPaid);
+
       await api.patch(`/financial/entries/${payingEntryId}/pay`, {
         paymentDate: payForm.paymentDate || new Date().toISOString(),
-        amountPaid: payForm.amountPaid ? Number(payForm.amountPaid) : undefined,
+        amountPaid: amountPaid ?? undefined,
         paymentMethodId: payForm.paymentMethodId || undefined,
         paymentKey: payForm.paymentKey || undefined
       });
@@ -643,7 +652,7 @@ export function FinancialEntriesPage() {
       setPayingEntryId(null);
       setPayReceiptFile(null);
       setPayForm(INITIAL_PAY_FORM);
-      await Promise.all([loadEntries(), loadCashOverview()]);
+      await loadEntries();
     } catch {
       notifyError("Financeiro", "Nao foi possivel marcar lancamento como pago.");
     }
@@ -653,7 +662,7 @@ export function FinancialEntriesPage() {
     try {
       await api.delete(`/financial/entries/${id}`);
       notifySuccess("Lancamento excluido");
-      await Promise.all([loadEntries(), loadCashOverview()]);
+      await loadEntries();
     } catch {
       notifyError("Financeiro", "Nao foi possivel excluir lancamento.");
     }
@@ -672,28 +681,6 @@ export function FinancialEntriesPage() {
         <KpiStatCard title="Pagos" value={`${kpis.paidCount} • ${formatCurrency(kpis.paidValue)}`} tone="positive" icon="check" />
         <KpiStatCard title="A vencer" value={`${kpis.pendingCount} • ${formatCurrency(kpis.pendingValue)}`} tone="neutral" icon="list" />
         <KpiStatCard title="Vencidos" value={`${kpis.overdueCount} • ${formatCurrency(kpis.overdueValue)}`} tone="negative" icon="warning" />
-        {canReadCash && (
-          <>
-            <KpiStatCard
-              title="Caixa diario"
-              value={formatCurrency(cashOverview?.summary.dailyPhysicalBalance ?? 0)}
-              tone="positive"
-              icon="money"
-            />
-            <KpiStatCard
-              title="Caixa mensal"
-              value={formatCurrency(cashOverview?.summary.monthlyPhysicalBalance ?? 0)}
-              tone="neutral"
-              icon="activity"
-            />
-            <KpiStatCard
-              title="Status caixa"
-              value={cashOverview?.currentBox?.status === "FECHADO" ? "Fechado" : cashOverview?.currentBox ? "Aberto" : "Nao aberto"}
-              tone={cashOverview?.currentBox?.status === "FECHADO" ? "positive" : "neutral"}
-              icon="clock"
-            />
-          </>
-        )}
       </div>
 
       <div className="asstramed-dashboard-filters">
@@ -708,14 +695,6 @@ export function FinancialEntriesPage() {
           placeholder="Status"
           options={STATUS_OPTIONS}
           onChange={(value) => setStatusFilter((value as FinancialEntryStatus) || "")}
-        />
-
-        <DashboardFilterSelect
-          value={categoryFilter || undefined}
-          allowClear
-          placeholder="Categoria"
-          options={categoryFilterOptions}
-          onChange={(value) => setCategoryFilter((value as string) || "")}
         />
 
         <DashboardFilterSelect
@@ -738,6 +717,14 @@ export function FinancialEntriesPage() {
               return currentCategory?.costCenterId === nextValue ? current : "";
             });
           }}
+        />
+
+        <DashboardFilterSelect
+          value={categoryFilter || undefined}
+          allowClear
+          placeholder="Categoria"
+          options={categoryFilterOptions}
+          onChange={(value) => setCategoryFilter((value as string) || "")}
         />
 
         <DashboardFilterSelect
@@ -810,44 +797,28 @@ export function FinancialEntriesPage() {
         ]}
       >
         <div className="form-grid">
-          <div className="field-block">
+          <div className="field-block" style={{ gridColumn: "1 / -1" }}>
             <label className="field-label">Titulo</label>
             <AppInput
               value={form.title}
               onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             />
           </div>
-          <div className="field-block">
+          <div className="field-block" style={{ gridColumn: "1 / -1" }}>
             <label className="field-label">Descricao</label>
-            <AppInput
+            <AppTextArea
+              autoSize={{ minRows: 3, maxRows: 5 }}
               value={form.description}
               onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             />
           </div>
           <div className="field-block">
-            <label className="field-label">Valor do lancamento</label>
-            <AppInput
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              value={form.amount}
-              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-            />
+            <label className="field-label">Status</label>
+            <AppInput disabled value={statusLabel(automaticStatus)} />
           </div>
           <div className="field-block">
             <label className="field-label">Data e hora do lancamento</label>
-            <AppInput
-              disabled
-              value={formatDateTime(editingEntry?.launchDate ?? new Date())}
-            />
-          </div>
-          <div className="field-block">
-            <label className="field-label">Status</label>
-            <DashboardFilterSelect
-              value={form.status}
-              options={STATUS_OPTIONS}
-              onChange={(value) => setForm((prev) => ({ ...prev, status: value as FinancialEntryStatus }))}
-            />
+            <AppInput disabled value={formatDateTime(editingEntry?.launchDate ?? new Date())} />
           </div>
 
           <div className="field-block">
@@ -885,30 +856,20 @@ export function FinancialEntriesPage() {
             />
           </div>
 
-          {!editingEntryId && (
-            <div className="field-block">
-              <label className="field-label">Numero de parcelas</label>
-              <AppInput
-                type="number"
-                min={1}
-                step="1"
-                value={form.installmentCount}
-                onChange={(event) => {
-                  const nextCount = Math.max(1, Number(event.target.value || 1));
-                  setForm((prev) => ({
-                    ...prev,
-                    installmentCount: String(nextCount),
-                    installmentDates: resizeInstallmentDates(prev.installmentDates, nextCount),
-                    dueDate: nextCount <= 1 ? prev.dueDate || todayInputDate() : ""
-                  }));
-                }}
-              />
-            </div>
-          )}
+          <div className="field-block">
+            <label className="field-label">Valor do lancamento</label>
+            <AppInput
+              inputMode="decimal"
+              value={form.amount}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, amount: formatCurrencyInput(event.target.value) }))
+              }
+            />
+          </div>
 
           {!editingEntryId && installmentCount <= 1 && (
             <div className="field-block">
-              <label className="field-label">Data da parcela</label>
+              <label className="field-label">Data de vencimento</label>
               <AppInput
                 type="date"
                 value={form.dueDate}
@@ -918,46 +879,13 @@ export function FinancialEntriesPage() {
           )}
 
           {editingEntryId && (
-            <>
-              <div className="field-block">
-                <label className="field-label">Parcela</label>
-                <AppInput
-                  disabled
-                  value={`${editingEntry?.installmentNumber ?? 1}/${editingEntry?.installmentCount ?? 1}`}
-                />
-              </div>
-              <div className="field-block">
-                <label className="field-label">Data da parcela</label>
-                <AppInput
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
-                />
-              </div>
-            </>
-          )}
-
-          {!editingEntryId && installmentCount > 1 && (
-            <div style={{ gridColumn: "1 / -1" }} className="card card-stack">
-              <h3>Datas das parcelas</h3>
-              <div className="form-grid">
-                {form.installmentDates.map((date, index) => (
-                  <div className="field-block" key={`installment-${index + 1}`}>
-                    <label className="field-label">{`Parcela ${index + 1}`}</label>
-                    <AppInput
-                      type="date"
-                      value={date}
-                      onChange={(event) =>
-                        setForm((prev) => {
-                          const nextDates = [...prev.installmentDates];
-                          nextDates[index] = event.target.value;
-                          return { ...prev, installmentDates: nextDates };
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
+            <div className="field-block">
+              <label className="field-label">Data de vencimento</label>
+              <AppInput
+                type="date"
+                value={form.dueDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
+              />
             </div>
           )}
 
@@ -990,13 +918,68 @@ export function FinancialEntriesPage() {
           <div className="field-block">
             <label className="field-label">Valor pago</label>
             <AppInput
-              type="number"
-              step="0.01"
               inputMode="decimal"
               value={form.amountPaid}
-              onChange={(event) => setForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, amountPaid: formatCurrencyInput(event.target.value) }))
+              }
             />
           </div>
+
+          {!editingEntryId && (
+            <div className="field-block" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label">Numero de parcelas</label>
+              <AppInput
+                type="number"
+                min={1}
+                step="1"
+                value={form.installmentCount}
+                onChange={(event) => {
+                  const nextCount = Math.max(1, Number(event.target.value || 1));
+                  setForm((prev) => ({
+                    ...prev,
+                    installmentCount: String(nextCount),
+                    installmentDates: resizeInstallmentDates(prev.installmentDates, nextCount),
+                    dueDate: nextCount <= 1 ? prev.dueDate || todayInputDate() : ""
+                  }));
+                }}
+              />
+            </div>
+          )}
+
+          {editingEntryId && (
+            <div className="field-block" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label">Parcela</label>
+              <AppInput
+                disabled
+                value={`${editingEntry?.installmentNumber ?? 1}/${editingEntry?.installmentCount ?? 1}`}
+              />
+            </div>
+          )}
+
+          {!editingEntryId && installmentCount > 1 && (
+            <div style={{ gridColumn: "1 / -1" }} className="card card-stack">
+              <h3>Datas de vencimento das parcelas</h3>
+              <div className="form-grid">
+                {form.installmentDates.map((date, index) => (
+                  <div className="field-block" key={`installment-${index + 1}`}>
+                    <label className="field-label">{`Parcela ${index + 1}`}</label>
+                    <AppInput
+                      type="date"
+                      value={date}
+                      onChange={(event) =>
+                        setForm((prev) => {
+                          const nextDates = [...prev.installmentDates];
+                          nextDates[index] = event.target.value;
+                          return { ...prev, installmentDates: nextDates };
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isPixForm && (
             <div className="field-block">
@@ -1082,11 +1065,11 @@ export function FinancialEntriesPage() {
           <div className="field-block">
             <label className="field-label">Valor pago</label>
             <AppInput
-              type="number"
-              step="0.01"
               inputMode="decimal"
               value={payForm.amountPaid}
-              onChange={(event) => setPayForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
+              onChange={(event) =>
+                setPayForm((prev) => ({ ...prev, amountPaid: formatCurrencyInput(event.target.value) }))
+              }
             />
           </div>
           <div className="field-block">

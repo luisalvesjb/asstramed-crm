@@ -1,6 +1,9 @@
 import { FinancialEntryStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
-import { ensureRecurringEntriesGenerated } from "../financial-entries/financial-entries.service";
+import {
+  ensureRecurringEntriesGenerated,
+  syncOverdueStatuses as syncCalculatedFinancialStatuses
+} from "../financial-entries/financial-entries.service";
 
 function startOfDay(date: Date): Date {
   const value = new Date(date);
@@ -28,6 +31,7 @@ export async function dailyReport(date?: Date) {
   const end = endOfDay(target);
 
   await ensureRecurringEntriesGenerated(end);
+  await syncCalculatedFinancialStatuses();
 
   const [dueToday, paidToday, overdue, pending] = await Promise.all([
     prisma.financialEntry.findMany({
@@ -129,6 +133,7 @@ export async function outflowByDay(filters: {
   const to = filters.endDate ? endOfDay(filters.endDate) : endOfDay(new Date());
 
   await ensureRecurringEntriesGenerated(to);
+  await syncCalculatedFinancialStatuses();
 
   const entries = await prisma.financialEntry.findMany({
     where: {

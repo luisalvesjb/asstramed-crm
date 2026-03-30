@@ -55,7 +55,7 @@ export function FinancialSettingsPage() {
   const canManageCashPassword = hasPermission(PERMISSIONS.FINANCE_CASH_PASSWORD_MANAGE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingKind>("categories");
+  const [activeTab, setActiveTab] = useState<SettingKind>("cost-centers");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
 
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
@@ -312,8 +312,8 @@ export function FinancialSettingsPage() {
         activeKey={activeTab}
         onChange={(key) => setActiveTab(key as SettingKind)}
         items={[
-          { key: "categories", label: "Categorias" },
           { key: "cost-centers", label: "Centro de Custo" },
+          { key: "categories", label: "Categorias" },
           { key: "payment-methods", label: "Formas de Pagamento" },
           ...(canManageCashPassword ? [{ key: "cash-password", label: "Caixa e senha" }] : [])
         ]}
