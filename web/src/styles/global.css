@@ -349,7 +349,17 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.page-header > * {
+  min-width: 0;
+}
+
+.page-header .ant-btn,
+.page-header .asstramed-btn {
+  flex-shrink: 0;
 }
 
 h1 {
