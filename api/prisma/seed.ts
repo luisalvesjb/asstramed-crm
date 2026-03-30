@@ -12,6 +12,14 @@ interface SeedOptions {
   withDemo: boolean;
 }
 
+function normalizeSeedKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .toLowerCase();
+}
+
 function parseOptions(): SeedOptions {
   const args = new Set(process.argv.slice(2));
   return {
@@ -211,55 +219,55 @@ async function ensureFinancialDefaults(dryRun: boolean): Promise<void> {
   ];
 
   const categories = [
-    { name: "PGT CRED À VISTA", costCenterName: "CREDENCIAMENTO" },
+    { name: "PGT CRED A VISTA", costCenterName: "CREDENCIAMENTO" },
     { name: "PGT CRED FATURADO", costCenterName: "CREDENCIAMENTO" },
     { name: "ACORDO CREDENCIADA", costCenterName: "CREDENCIAMENTO" },
-    { name: "ENERGIA - ÁGUA", costCenterName: "DESPESAS ADMINISTRATIVAS" },
+    { name: "ENERGIA -AGUA", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "TELEFONE CELULAR", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "INTERNET", costCenterName: "DESPESAS ADMINISTRATIVAS" },
-    { name: "VIAGENS / DIÁRIAS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
+    { name: "VIAGENS / DIARIAS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "ALUGUEL - IPTU", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "SUPLIMENTOS ADMINISTRATIVOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "COMPRAS COPA / LIMPEZA", costCenterName: "DESPESAS ADMINISTRATIVAS" },
-    { name: "MANUTENÇÃO PREDIAL", costCenterName: "DESPESAS ADMINISTRATIVAS" },
+    { name: "MANUNTEÇÃO PREDIAL", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "MANUTENÇÃO EQUIPAMENTOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
-    { name: "MANUTENÇÃO VEÍCULOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
+    { name: "MANUTENÇAÕ VEICULOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "MANUTENÇÃO EQUIPAMENTOS TÉCNICOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "INVESTIMENTO EQUIPAMENTOS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
-    { name: "DESPESAS VARIÁVEIS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
+    { name: "DESPESAS VARIAVEIS", costCenterName: "DESPESAS ADMINISTRATIVAS" },
     { name: "VALE TRANSPORTE", costCenterName: "DESPESA PESSOAL" },
-    { name: "VALE ALIMENTAÇÃO", costCenterName: "DESPESA PESSOAL" },
-    { name: "SALÁRIO", costCenterName: "DESPESA PESSOAL" },
+    { name: "VALE ALIEMENTAÇÃO", costCenterName: "DESPESA PESSOAL" },
+    { name: "SALARIO", costCenterName: "DESPESA PESSOAL" },
     { name: "FGTS / IRRF", costCenterName: "DESPESA PESSOAL" },
-    { name: "FÉRIAS", costCenterName: "DESPESA PESSOAL" },
+    { name: "FERIAS", costCenterName: "DESPESA PESSOAL" },
     { name: "RESCISÃO DE CONTRATO", costCenterName: "DESPESA PESSOAL" },
     { name: "ACORDOS TRABALHISTAS", costCenterName: "DESPESA PESSOAL" },
     { name: "GRATIFICAÇÃO", costCenterName: "DESPESA PESSOAL" },
-    { name: "MÉDICO COORDENADOR", costCenterName: "DESPESAS PRESTADORES SST" },
-    { name: "MÉDICO EXAMINADOR", costCenterName: "DESPESAS PRESTADORES SST" },
-    { name: "EXAMES PERIÓDICOS", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "MEDICO COORDENADOR", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "MEDICO EXAMINADOR", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "EXAMES PERIODICOS", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "EXAMES DE IMAGEM", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "EXAMES LABORATORIAIS", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "ECC / EEG", costCenterName: "DESPESAS PRESTADORES SST" },
-    { name: "AUDIOMETRIA", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "AUDIOMETREIA", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "ESPIROMETRIA", costCenterName: "DESPESAS PRESTADORES SST" },
-    { name: "OFTALMOLOGIA", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "AFTALMOLOGIA", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "PSICOLOGIA", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "OUTROS EXAMES", costCenterName: "DESPESAS PRESTADORES SST" },
-    { name: "PERÍCIAS MÉDICAS / ENGENHARIA", costCenterName: "DESPESAS PRESTADORES SST" },
+    { name: "PERICIAS MEDICAS / ENGENHARIA", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "TREINAMENTOS / CURSO", costCenterName: "DESPESAS PRESTADORES SST" },
     { name: "SOC / SGG", costCenterName: "CONTRATOS FIXOS" },
     { name: "LINITEL", costCenterName: "CONTRATOS FIXOS" },
     { name: "D4-SING", costCenterName: "CONTRATOS FIXOS" },
-    { name: "ISSQN-ONLINE", costCenterName: "CONTRATOS FIXOS" },
+    { name: "ISSQN-ONLIN", costCenterName: "CONTRATOS FIXOS" },
     { name: "ABRESST", costCenterName: "CONTRATOS FIXOS" },
     { name: "E-MAIL GOOGLE", costCenterName: "CONTRATOS FIXOS" },
-    { name: "MUNDEL - INFORMÁTICA", costCenterName: "CONTRATOS FIXOS" },
+    { name: "MUNDEL -INFORMATICA", costCenterName: "CONTRATOS FIXOS" },
     { name: "FORMASEG", costCenterName: "CONTRATOS FIXOS" },
     { name: "ISSQN", costCenterName: "IMPOSTOS/ACORDOS" },
-    { name: "ACORDO TRIBUTÁRIO", costCenterName: "IMPOSTOS/ACORDOS" },
-    { name: "ASSESSORIA TRIBUTÁRIA", costCenterName: "IMPOSTOS/ACORDOS" },
-    { name: "ASSESSORIA CONTÁBIL", costCenterName: "IMPOSTOS/ACORDOS" },
+    { name: "ACORDO TRIBUTARIO", costCenterName: "IMPOSTOS/ACORDOS" },
+    { name: "ASSESSORIA TRIBUTARIA", costCenterName: "IMPOSTOS/ACORDOS" },
+    { name: "ASSESSORIA CONTABIL", costCenterName: "IMPOSTOS/ACORDOS" },
     { name: "ASSESSORIA TRABALHISTA", costCenterName: "IMPOSTOS/ACORDOS" },
     { name: "ACORDO JUDICIAL", costCenterName: "IMPOSTOS/ACORDOS" },
     { name: "RECEITA FEDERAL / PGFN", costCenterName: "IMPOSTOS/ACORDOS" }
@@ -279,44 +287,71 @@ async function ensureFinancialDefaults(dryRun: boolean): Promise<void> {
     return;
   }
 
-  await Promise.all(
-    costCenters.map((item) =>
-      prisma.costCenter.upsert({
-        where: { name: item.name },
-        update: { description: item.description, isActive: true },
-        create: { name: item.name, description: item.description, isActive: true }
-      })
-    )
+  const existingCostCenters = await prisma.costCenter.findMany();
+  const existingCostCenterByKey = new Map(
+    existingCostCenters.map((item) => [normalizeSeedKey(item.name), item] as const)
   );
 
-  const persistedCostCenters = await prisma.costCenter.findMany({
-    where: {
-      name: {
-        in: costCenters.map((item) => item.name)
-      }
-    }
-  });
+  for (const item of costCenters) {
+    const existing = existingCostCenterByKey.get(normalizeSeedKey(item.name));
 
-  const costCenterByName = new Map(persistedCostCenters.map((item) => [item.name, item.id] as const));
-
-  await Promise.all(
-    categories.map((item) =>
-      prisma.financialCategory.upsert({
-        where: { name: item.name },
-        update: {
-          description: null,
-          costCenterId: costCenterByName.get(item.costCenterName),
-          isActive: true
-        },
-        create: {
-          name: item.name,
-          description: null,
-          costCenterId: costCenterByName.get(item.costCenterName),
+    if (existing) {
+      await prisma.costCenter.update({
+        where: { id: existing.id },
+        data: {
+          name: existing.name,
+          description: item.description,
           isActive: true
         }
-      })
-    )
+      });
+      continue;
+    }
+
+    await prisma.costCenter.create({
+      data: {
+        name: item.name,
+        description: item.description,
+        isActive: true
+      }
+    });
+  }
+
+  const persistedCostCenters = await prisma.costCenter.findMany();
+  const costCenterByName = new Map(
+    persistedCostCenters.map((item) => [normalizeSeedKey(item.name), item.id] as const)
   );
+
+  const existingCategories = await prisma.financialCategory.findMany();
+  const existingCategoryByKey = new Map(
+    existingCategories.map((item) => [normalizeSeedKey(item.name), item] as const)
+  );
+
+  for (const item of categories) {
+    const mappedCostCenterId = costCenterByName.get(normalizeSeedKey(item.costCenterName));
+    const existing = existingCategoryByKey.get(normalizeSeedKey(item.name));
+
+    if (existing) {
+      await prisma.financialCategory.update({
+        where: { id: existing.id },
+        data: {
+          name: existing.name,
+          description: null,
+          costCenterId: mappedCostCenterId,
+          isActive: true
+        }
+      });
+      continue;
+    }
+
+    await prisma.financialCategory.create({
+      data: {
+        name: item.name,
+        description: null,
+        costCenterId: mappedCostCenterId,
+        isActive: true
+      }
+    });
+  }
 
   await Promise.all(
     paymentMethods.map((item) =>
@@ -341,13 +376,9 @@ async function ensureFinancialDefaults(dryRun: boolean): Promise<void> {
   });
 
   const persistedCategories = await prisma.financialCategory.findMany({
-    where: {
-      name: {
-        in: categories.map((item) => item.name)
-      }
-    },
     select: {
       id: true,
+      name: true,
       costCenterId: true
     }
   });

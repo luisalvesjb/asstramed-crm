@@ -739,6 +739,7 @@ export function FinancialEntriesPage() {
         loading={loading}
         columns={columns}
         dataSource={entries}
+        scroll={{ x: "max-content" }}
         pagination={false}
       />
 
