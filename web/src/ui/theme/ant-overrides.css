@@ -104,7 +104,13 @@
   outline: none;
 }
 
+.asstramed-table {
+  max-width: 100%;
+  min-width: 0;
+}
+
 .asstramed-table .ant-table {
+  width: 100%;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #e4e8f2;
@@ -112,6 +118,11 @@
 
 .asstramed-table .ant-table-container {
   border-inline-start: 0 !important;
+}
+
+.asstramed-table .ant-table-content,
+.asstramed-table .ant-table-body {
+  overflow-x: auto !important;
 }
 
 .asstramed-table .ant-table-thead > tr > th {

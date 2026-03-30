@@ -256,6 +256,7 @@ a {
   display: flex;
   flex-direction: column;
   background: rgba(247, 249, 253, 0.74);
+  min-width: 0;
 }
 
 .topbar {
@@ -338,11 +339,13 @@ select {
 
 .content {
   padding: 8px 16px 16px;
+  min-width: 0;
 }
 
 .page {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .page-header {
@@ -1058,6 +1061,7 @@ h3 {
 
 .main {
   background: linear-gradient(180deg, rgba(245, 247, 252, 0.85) 0%, rgba(241, 244, 251, 0.92) 100%);
+  min-width: 0;
 }
 
 .topbar {
@@ -1151,10 +1155,12 @@ h3 {
 
 .content {
   padding: 8px 14px 14px;
+  min-width: 0;
 }
 
 .page {
   gap: 12px;
+  min-width: 0;
 }
 
 .page-header {
