@@ -36,6 +36,27 @@ enum MessagePriority {
   BAIXA
 }
 
+enum CashBoxStatus {
+  ABERTO
+  FECHADO
+}
+
+enum CashMovementType {
+  RECEBIMENTO
+  SAIDA
+  SANGRIA
+  SUPRIMENTO
+  AJUSTE_POSITIVO
+  AJUSTE_NEGATIVO
+}
+
+enum CashReceiptCategory {
+  PIX
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  DINHEIRO
+}
+
 model User {
   id                      String                  @id @default(uuid())
   name                    String
@@ -63,6 +84,10 @@ model User {
   directedCompanyMessages CompanyMessage[]        @relation("CompanyMessageDirectedTo")
   resolvedCompanyMessages CompanyMessage[]        @relation("CompanyMessageResolvedBy")
   createdActivityMessages ActivityMessage[]       @relation("ActivityMessageCreatedBy")
+  openedCashBoxes         CashBox[]               @relation("CashBoxOpenedBy")
+  closedCashBoxes         CashBox[]               @relation("CashBoxClosedBy")
+  createdCashMovements    CashMovement[]          @relation("CashMovementCreatedBy")
+  updatedSystemSettings   SystemSetting[]         @relation("SystemSettingUpdatedBy")
 }
 
 model Profile {
@@ -284,6 +309,56 @@ model FinancialEntry {
   @@index([costCenterId])
   @@index([paymentMethodId])
   @@index([isFixed, nextRecurrenceDate])
+}
+
+model CashBox {
+  id                   String         @id @default(uuid())
+  referenceDate        DateTime       @unique
+  openingAmount        Decimal        @default(0)
+  openingNotes         String?
+  openedAt             DateTime       @default(now())
+  openedById           String
+  status               CashBoxStatus  @default(ABERTO)
+  closingAmountExpected Decimal?
+  closingAmountCounted Decimal?
+  differenceAmount     Decimal?
+  closingNotes         String?
+  closedAt             DateTime?
+  closedById           String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  openedBy             User           @relation("CashBoxOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy             User?          @relation("CashBoxClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements            CashMovement[]
+
+  @@index([referenceDate, status])
+}
+
+model CashMovement {
+  id              String               @id @default(uuid())
+  cashBoxId       String
+  type            CashMovementType
+  receiptCategory CashReceiptCategory
+  amount          Decimal
+  description     String?
+  reference       String?
+  createdById     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  cashBox         CashBox              @relation(fields: [cashBoxId], references: [id], onDelete: Cascade)
+  createdBy       User                 @relation("CashMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([cashBoxId, createdAt])
+  @@index([receiptCategory, createdAt])
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation("SystemSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 }
 
 model CompanyMessage {

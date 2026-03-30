@@ -3,6 +3,7 @@ import { TableProps } from "antd";
 import { AxiosError } from "axios";
 import { api } from "../services/api";
 import {
+  CashOverviewResponse,
   CostCenter,
   FinancialCategory,
   FinancialEntry,
@@ -22,6 +23,8 @@ import {
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { resolveAssetUrl } from "../utils/asset-url";
+import { useAuth } from "../context/AuthContext";
+import { PERMISSIONS } from "../constants/permissions";
 
 interface EntryFormState {
   title: string;
@@ -127,9 +130,12 @@ function resizeInstallmentDates(current: string[], nextCount: number): string[] 
 }
 
 export function FinancialEntriesPage() {
+  const { hasPermission } = useAuth();
+  const canReadCash = hasPermission(PERMISSIONS.FINANCE_CASH_READ);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
+  const [cashOverview, setCashOverview] = useState<CashOverviewResponse | null>(null);
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -434,6 +440,20 @@ export function FinancialEntriesPage() {
     }
   }
 
+  async function loadCashOverview() {
+    if (!canReadCash) {
+      setCashOverview(null);
+      return;
+    }
+
+    try {
+      const response = await api.get<CashOverviewResponse>("/financial/cash/overview");
+      setCashOverview(response.data);
+    } catch {
+      setCashOverview(null);
+    }
+  }
+
   useEffect(() => {
     void (async () => {
       try {
@@ -442,9 +462,9 @@ export function FinancialEntriesPage() {
         notifyError("Financeiro", "Falha ao carregar configuracoes financeiras.");
       }
 
-      await loadEntries();
+      await Promise.all([loadEntries(), loadCashOverview()]);
     })();
-  }, []);
+  }, [canReadCash]);
 
   function openCreate() {
     setEditingEntryId(null);
@@ -573,7 +593,7 @@ export function FinancialEntriesPage() {
       setModalOpen(false);
       setBankSlipFile(null);
       setPaymentReceiptFile(null);
-      await loadEntries();
+      await Promise.all([loadEntries(), loadCashOverview()]);
     } catch (error) {
       const message =
         error instanceof AxiosError
@@ -623,7 +643,7 @@ export function FinancialEntriesPage() {
       setPayingEntryId(null);
       setPayReceiptFile(null);
       setPayForm(INITIAL_PAY_FORM);
-      await loadEntries();
+      await Promise.all([loadEntries(), loadCashOverview()]);
     } catch {
       notifyError("Financeiro", "Nao foi possivel marcar lancamento como pago.");
     }
@@ -633,7 +653,7 @@ export function FinancialEntriesPage() {
     try {
       await api.delete(`/financial/entries/${id}`);
       notifySuccess("Lancamento excluido");
-      await loadEntries();
+      await Promise.all([loadEntries(), loadCashOverview()]);
     } catch {
       notifyError("Financeiro", "Nao foi possivel excluir lancamento.");
     }
@@ -652,6 +672,28 @@ export function FinancialEntriesPage() {
         <KpiStatCard title="Pagos" value={`${kpis.paidCount} • ${formatCurrency(kpis.paidValue)}`} tone="positive" icon="check" />
         <KpiStatCard title="A vencer" value={`${kpis.pendingCount} • ${formatCurrency(kpis.pendingValue)}`} tone="neutral" icon="list" />
         <KpiStatCard title="Vencidos" value={`${kpis.overdueCount} • ${formatCurrency(kpis.overdueValue)}`} tone="negative" icon="warning" />
+        {canReadCash && (
+          <>
+            <KpiStatCard
+              title="Caixa diario"
+              value={formatCurrency(cashOverview?.summary.dailyPhysicalBalance ?? 0)}
+              tone="positive"
+              icon="money"
+            />
+            <KpiStatCard
+              title="Caixa mensal"
+              value={formatCurrency(cashOverview?.summary.monthlyPhysicalBalance ?? 0)}
+              tone="neutral"
+              icon="activity"
+            />
+            <KpiStatCard
+              title="Status caixa"
+              value={cashOverview?.currentBox?.status === "FECHADO" ? "Fechado" : cashOverview?.currentBox ? "Aberto" : "Nao aberto"}
+              tone={cashOverview?.currentBox?.status === "FECHADO" ? "positive" : "neutral"}
+              icon="clock"
+            />
+          </>
+        )}
       </div>
 
       <div className="asstramed-dashboard-filters">

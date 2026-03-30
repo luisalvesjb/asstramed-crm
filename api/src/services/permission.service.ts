@@ -28,7 +28,11 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   "finance.read": "Visualizar financeiro",
   "finance.write": "Criar e editar lancamentos financeiros",
   "finance.settings": "Gerenciar categorias e parametros financeiros",
-  "finance.reports": "Visualizar relatorios financeiros"
+  "finance.reports": "Visualizar relatorios financeiros",
+  "finance.cash.read": "Visualizar caixa diario",
+  "finance.cash.write": "Abrir caixa e lancar movimentacoes de caixa",
+  "finance.cash.close": "Fechar caixa diario",
+  "finance.cash.password.manage": "Gerenciar senha de fechamento do caixa"
 };
 
 export async function syncPermissionCatalog(): Promise<void> {

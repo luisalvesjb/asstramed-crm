@@ -30,7 +30,11 @@ const PERMISSION_LABEL_ALIAS: Record<string, string> = {
   "finance.read": "Visualizar financeiro",
   "finance.write": "Criar/editar lancamentos financeiros",
   "finance.settings": "Gerenciar configuracoes financeiras",
-  "finance.reports": "Visualizar relatorios financeiros"
+  "finance.reports": "Visualizar relatorios financeiros",
+  "finance.cash.read": "Visualizar caixa diario",
+  "finance.cash.write": "Abrir caixa e lancar movimentacoes",
+  "finance.cash.close": "Fechar caixa diario",
+  "finance.cash.password.manage": "Gerenciar senha de fechamento do caixa"
 };
 
 interface ProfileFormState {

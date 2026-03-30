@@ -23,6 +23,14 @@ export const updateFinancialSettingSchema = z.object({
   costCenterId: z.string().uuid().nullable().optional()
 });
 
+export const updateCashPasswordSchema = z.object({
+  password: z.string().min(4),
+  confirmPassword: z.string().min(4)
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas nao coincidem",
+  path: ["confirmPassword"]
+});
+
 export const financialSettingIdParamSchema = z.object({
   id: z.string().uuid()
 });

@@ -70,3 +70,15 @@ financialSettingsRoutes.delete(
   permissionMiddleware([PERMISSIONS.FINANCE_SETTINGS]),
   financialSettingsController.deactivatePaymentMethod
 );
+
+financialSettingsRoutes.get(
+  "/cash-password",
+  permissionMiddleware([PERMISSIONS.FINANCE_CASH_PASSWORD_MANAGE]),
+  financialSettingsController.getCashPasswordSettings
+);
+
+financialSettingsRoutes.put(
+  "/cash-password",
+  permissionMiddleware([PERMISSIONS.FINANCE_CASH_PASSWORD_MANAGE]),
+  financialSettingsController.updateCashPassword
+);

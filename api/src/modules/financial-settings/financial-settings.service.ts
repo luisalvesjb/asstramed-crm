@@ -1,6 +1,7 @@
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../errors/app-error";
 import { registerAuditLog } from "../../services/audit.service";
+import { hashPassword } from "../../utils/password";
 
 interface FinancialSettingInput {
   name: string;
@@ -488,4 +489,71 @@ export async function deactivatePaymentMethod(actorId: string, id: string) {
   });
 
   return updated;
+}
+
+export async function getCashPasswordSettings() {
+  const setting = await prisma.systemSetting.findUnique({
+    where: {
+      key: "finance.cash.close.password_hash"
+    },
+    include: {
+      updatedBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  return {
+    configured: Boolean(setting),
+    updatedAt: setting?.updatedAt ?? null,
+    updatedBy: setting?.updatedBy ?? null
+  };
+}
+
+export async function updateCashPassword(
+  actorId: string,
+  input: {
+    password: string;
+  }
+) {
+  const passwordHash = await hashPassword(input.password);
+
+  const setting = await prisma.systemSetting.upsert({
+    where: {
+      key: "finance.cash.close.password_hash"
+    },
+    update: {
+      value: passwordHash,
+      updatedById: actorId
+    },
+    create: {
+      key: "finance.cash.close.password_hash",
+      value: passwordHash,
+      updatedById: actorId
+    },
+    include: {
+      updatedBy: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  await registerAuditLog({
+    actorId,
+    action: "CASH_PASSWORD_UPDATED",
+    entity: "SYSTEM_SETTING",
+    entityId: setting.key
+  });
+
+  return {
+    configured: true,
+    updatedAt: setting.updatedAt,
+    updatedBy: setting.updatedBy
+  };
 }

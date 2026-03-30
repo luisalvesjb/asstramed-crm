@@ -3,6 +3,7 @@ import {
   createFinancialSettingSchema,
   financialSettingIdParamSchema,
   listFinancialSettingsSchema,
+  updateCashPasswordSchema,
   updateFinancialSettingSchema
 } from "./financial-settings.validators";
 import * as financialSettingsService from "./financial-settings.service";
@@ -80,4 +81,15 @@ export async function deactivatePaymentMethod(req: Request, res: Response): Prom
   const { id } = financialSettingIdParamSchema.parse(req.params);
   const item = await financialSettingsService.deactivatePaymentMethod(req.user!.id, id);
   res.status(200).json(item);
+}
+
+export async function getCashPasswordSettings(req: Request, res: Response): Promise<void> {
+  const settings = await financialSettingsService.getCashPasswordSettings();
+  res.status(200).json(settings);
+}
+
+export async function updateCashPassword(req: Request, res: Response): Promise<void> {
+  const payload = updateCashPasswordSchema.parse(req.body);
+  const settings = await financialSettingsService.updateCashPassword(req.user!.id, payload);
+  res.status(200).json(settings);
 }

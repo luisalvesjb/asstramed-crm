@@ -277,3 +277,103 @@ export interface FinancialEntry {
   createdBy: ApiUser;
   parentEntry?: { id: string; title: string; dueDate: string } | null;
 }
+
+export type CashBoxStatus = "ABERTO" | "FECHADO";
+export type CashMovementType =
+  | "RECEBIMENTO"
+  | "SAIDA"
+  | "SANGRIA"
+  | "SUPRIMENTO"
+  | "AJUSTE_POSITIVO"
+  | "AJUSTE_NEGATIVO";
+export type CashReceiptCategory = "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "DINHEIRO";
+
+export interface CashMovement {
+  id: string;
+  type: CashMovementType;
+  receiptCategory: CashReceiptCategory;
+  amount: number;
+  description?: string | null;
+  reference?: string | null;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CashCategorySummary {
+  category: CashReceiptCategory;
+  label: string;
+  inflow: number;
+  outflow: number;
+  balance: number;
+}
+
+export interface CashBox {
+  id: string;
+  referenceDate: string;
+  status: CashBoxStatus;
+  openingAmount: number;
+  openingNotes?: string | null;
+  openedAt: string;
+  openedBy: {
+    id: string;
+    name: string;
+  };
+  closingAmountExpected: number;
+  closingAmountCounted?: number | null;
+  differenceAmount?: number | null;
+  closingNotes?: string | null;
+  closedAt?: string | null;
+  closedBy?: {
+    id: string;
+    name: string;
+  } | null;
+  physicalBalance: number;
+  dailyByCategory: CashCategorySummary[];
+  movements: CashMovement[];
+}
+
+export interface CashBoxHistoryItem {
+  id: string;
+  referenceDate: string;
+  status: CashBoxStatus;
+  openingAmount: number;
+  openedAt: string;
+  openedBy: {
+    id: string;
+    name: string;
+  };
+  closedAt?: string | null;
+  closedBy?: {
+    id: string;
+    name: string;
+  } | null;
+  physicalBalance: number;
+  movementCount: number;
+  closingAmountCounted?: number | null;
+  differenceAmount?: number | null;
+}
+
+export interface CashOverviewResponse {
+  referenceDate: string;
+  currentBox: CashBox | null;
+  summary: {
+    dailyPhysicalBalance: number;
+    monthlyPhysicalBalance: number;
+    hasOpenCashBox: boolean;
+    dailyByCategory: CashCategorySummary[];
+    monthlyByCategory: CashCategorySummary[];
+  };
+  recentBoxes: CashBoxHistoryItem[];
+}
+
+export interface CashPasswordSettings {
+  configured: boolean;
+  updatedAt?: string | null;
+  updatedBy?: {
+    id: string;
+    name: string;
+  } | null;
+}

@@ -73,6 +73,12 @@ export function AppShell({ children }: AppShellProps) {
         section: "Financeiro",
         items: [
           {
+            to: "/financeiro/caixa",
+            label: "Caixa diario",
+            permission: PERMISSIONS.FINANCE_CASH_READ,
+            icon: <DollarOutlined />
+          },
+          {
             to: "/financeiro/lancamentos",
             label: "Lancamentos",
             permission: PERMISSIONS.FINANCE_READ,

@@ -585,6 +585,16 @@ h3 {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+.form-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .field-block {
   display: grid;
   gap: 6px;
@@ -622,6 +632,18 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.cash-box-meta-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.cash-box-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .company-header-block {
@@ -1448,6 +1470,11 @@ h3 {
 
   .kpi-grid,
   .asstramed-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-2,
+  .cash-box-summary-grid {
     grid-template-columns: 1fr;
   }
 

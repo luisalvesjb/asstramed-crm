@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TableProps } from "antd";
 import { AxiosError } from "axios";
 import { api } from "../services/api";
-import { CostCenter, FinancialCategory, PaymentMethod } from "../types/api";
+import { CashPasswordSettings, CostCenter, FinancialCategory, PaymentMethod } from "../types/api";
 import {
   AppButton,
   AppCheckbox,
@@ -13,8 +13,10 @@ import {
   DashboardFilterSelect
 } from "../ui/components";
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
+import { useAuth } from "../context/AuthContext";
+import { PERMISSIONS } from "../constants/permissions";
 
-type SettingKind = "categories" | "cost-centers" | "payment-methods";
+type SettingKind = "categories" | "cost-centers" | "payment-methods" | "cash-password";
 
 interface BaseSetting {
   id: string;
@@ -37,7 +39,8 @@ interface SettingForm {
 const KIND_LABEL: Record<SettingKind, string> = {
   categories: "Categoria",
   "cost-centers": "Centro de Custo",
-  "payment-methods": "Forma de Pagamento"
+  "payment-methods": "Forma de Pagamento",
+  "cash-password": "Caixa e senha"
 };
 
 const INITIAL_FORM: SettingForm = {
@@ -48,6 +51,8 @@ const INITIAL_FORM: SettingForm = {
 };
 
 export function FinancialSettingsPage() {
+  const { hasPermission } = useAuth();
+  const canManageCashPassword = hasPermission(PERMISSIONS.FINANCE_CASH_PASSWORD_MANAGE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingKind>("categories");
@@ -56,6 +61,11 @@ export function FinancialSettingsPage() {
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [cashPasswordSettings, setCashPasswordSettings] = useState<CashPasswordSettings | null>(null);
+  const [cashPasswordForm, setCashPasswordForm] = useState({
+    password: "",
+    confirmPassword: ""
+  });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,6 +74,7 @@ export function FinancialSettingsPage() {
   const activeItems = useMemo(() => {
     if (activeTab === "categories") return categories;
     if (activeTab === "cost-centers") return costCenters;
+    if (activeTab === "cash-password") return [];
     return paymentMethods;
   }, [activeTab, categories, costCenters, paymentMethods]);
 
@@ -157,6 +168,13 @@ export function FinancialSettingsPage() {
       setCategories(categoryResponse.data);
       setCostCenters(costCenterResponse.data);
       setPaymentMethods(paymentMethodResponse.data);
+
+      if (canManageCashPassword) {
+        const cashPasswordResponse = await api.get<CashPasswordSettings>("/financial/settings/cash-password");
+        setCashPasswordSettings(cashPasswordResponse.data);
+      } else {
+        setCashPasswordSettings(null);
+      }
     } catch {
       notifyError("Financeiro", "Nao foi possivel carregar configuracoes financeiras.");
     } finally {
@@ -166,7 +184,7 @@ export function FinancialSettingsPage() {
 
   useEffect(() => {
     void loadSettings();
-  }, [statusFilter]);
+  }, [statusFilter, canManageCashPassword]);
 
   function openCreate() {
     setEditingId(null);
@@ -175,6 +193,41 @@ export function FinancialSettingsPage() {
   }
 
   async function saveSetting() {
+    if (activeTab === "cash-password") {
+      if (!cashPasswordForm.password.trim()) {
+        notifyError("Financeiro", "Informe a senha do caixa.");
+        return;
+      }
+
+      if (cashPasswordForm.password !== cashPasswordForm.confirmPassword) {
+        notifyError("Financeiro", "As senhas nao coincidem.");
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const response = await api.put<CashPasswordSettings>("/financial/settings/cash-password", {
+          password: cashPasswordForm.password,
+          confirmPassword: cashPasswordForm.confirmPassword
+        });
+
+        setCashPasswordSettings(response.data);
+        setCashPasswordForm({ password: "", confirmPassword: "" });
+        notifySuccess("Senha do caixa atualizada");
+      } catch (error) {
+        const message =
+          error instanceof AxiosError
+            ? (error.response?.data?.message as string | undefined)
+            : "Nao foi possivel salvar.";
+        notifyError("Financeiro", message ?? "Nao foi possivel salvar.");
+      } finally {
+        setSaving(false);
+      }
+
+      return;
+    }
+
     if (!form.name.trim()) {
       notifyError("Financeiro", "Informe o nome.");
       return;
@@ -248,9 +301,11 @@ export function FinancialSettingsPage() {
     <div className="page">
       <div className="page-header">
         <h1>Configuracoes Financeiras</h1>
-        <AppButton type="primary" onClick={openCreate}>
-          Novo {KIND_LABEL[activeTab]}
-        </AppButton>
+        {activeTab !== "cash-password" && (
+          <AppButton type="primary" onClick={openCreate}>
+            Novo {KIND_LABEL[activeTab]}
+          </AppButton>
+        )}
       </div>
 
       <AppTabs
@@ -259,29 +314,76 @@ export function FinancialSettingsPage() {
         items={[
           { key: "categories", label: "Categorias" },
           { key: "cost-centers", label: "Centro de Custo" },
-          { key: "payment-methods", label: "Formas de Pagamento" }
+          { key: "payment-methods", label: "Formas de Pagamento" },
+          ...(canManageCashPassword ? [{ key: "cash-password", label: "Caixa e senha" }] : [])
         ]}
       />
 
-      <div className="asstramed-dashboard-filters">
-        <DashboardFilterSelect
-          value={statusFilter}
-          options={[
-            { label: "Ativos", value: "active" },
-            { label: "Inativos", value: "inactive" },
-            { label: "Todos", value: "all" }
-          ]}
-          onChange={(value) => setStatusFilter((value as "active" | "inactive" | "all") || "active")}
-        />
-      </div>
+      {activeTab === "cash-password" ? (
+        <div className="card card-stack">
+          <div className="cash-box-meta-grid">
+            <div>
+              <strong>Senha configurada</strong>
+              <div>{cashPasswordSettings?.configured ? "Sim" : "Nao"}</div>
+            </div>
+            <div>
+              <strong>Ultima atualizacao</strong>
+              <div>{cashPasswordSettings?.updatedAt ? new Date(cashPasswordSettings.updatedAt).toLocaleString("pt-BR") : "-"}</div>
+            </div>
+            <div>
+              <strong>Atualizada por</strong>
+              <div>{cashPasswordSettings?.updatedBy?.name ?? "-"}</div>
+            </div>
+          </div>
 
-      <AppTable<BaseSetting>
-        rowKey="id"
-        loading={loading}
-        columns={columns}
-        dataSource={activeItems as BaseSetting[]}
-        pagination={false}
-      />
+          <div className="form-grid form-grid-2">
+            <div className="field-block">
+              <label className="field-label">Nova senha do caixa</label>
+              <AppInput
+                type="password"
+                value={cashPasswordForm.password}
+                onChange={(event) => setCashPasswordForm((prev) => ({ ...prev, password: event.target.value }))}
+              />
+            </div>
+            <div className="field-block">
+              <label className="field-label">Confirmar senha</label>
+              <AppInput
+                type="password"
+                value={cashPasswordForm.confirmPassword}
+                onChange={(event) => setCashPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="status-actions">
+            <AppButton type="primary" loading={saving} onClick={() => void saveSetting()}>
+              Salvar senha
+            </AppButton>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="asstramed-dashboard-filters">
+            <DashboardFilterSelect
+              value={statusFilter}
+              options={[
+                { label: "Ativos", value: "active" },
+                { label: "Inativos", value: "inactive" },
+                { label: "Todos", value: "all" }
+              ]}
+              onChange={(value) => setStatusFilter((value as "active" | "inactive" | "all") || "active")}
+            />
+          </div>
+
+          <AppTable<BaseSetting>
+            rowKey="id"
+            loading={loading}
+            columns={columns}
+            dataSource={activeItems as BaseSetting[]}
+            pagination={false}
+          />
+        </>
+      )}
 
       <AppModal
         open={modalOpen}

@@ -20,7 +20,11 @@ export const PERMISSIONS = {
   FINANCE_READ: "finance.read",
   FINANCE_WRITE: "finance.write",
   FINANCE_SETTINGS: "finance.settings",
-  FINANCE_REPORTS: "finance.reports"
+  FINANCE_REPORTS: "finance.reports",
+  FINANCE_CASH_READ: "finance.cash.read",
+  FINANCE_CASH_WRITE: "finance.cash.write",
+  FINANCE_CASH_CLOSE: "finance.cash.close",
+  FINANCE_CASH_PASSWORD_MANAGE: "finance.cash.password.manage"
 } as const;
 
 export const ALL_PERMISSION_KEYS = Object.values(PERMISSIONS);
@@ -63,7 +67,8 @@ export const SYSTEM_PROFILE_TEMPLATES: SystemProfileTemplate[] = [
       PERMISSIONS.FINANCE_READ,
       PERMISSIONS.FINANCE_WRITE,
       PERMISSIONS.FINANCE_SETTINGS,
-      PERMISSIONS.FINANCE_REPORTS
+      PERMISSIONS.FINANCE_REPORTS,
+      PERMISSIONS.FINANCE_CASH_READ
     ]
   },
   {
@@ -89,7 +94,11 @@ export const SYSTEM_PROFILE_TEMPLATES: SystemProfileTemplate[] = [
       PERMISSIONS.FINANCE_READ,
       PERMISSIONS.FINANCE_WRITE,
       PERMISSIONS.FINANCE_SETTINGS,
-      PERMISSIONS.FINANCE_REPORTS
+      PERMISSIONS.FINANCE_REPORTS,
+      PERMISSIONS.FINANCE_CASH_READ,
+      PERMISSIONS.FINANCE_CASH_WRITE,
+      PERMISSIONS.FINANCE_CASH_CLOSE,
+      PERMISSIONS.FINANCE_CASH_PASSWORD_MANAGE
     ]
   }
 ];

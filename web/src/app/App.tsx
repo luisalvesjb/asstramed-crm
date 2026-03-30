@@ -39,6 +39,9 @@ const FinancialReportsPage = lazy(() =>
 const FinancialSettingsPage = lazy(() =>
   import("../pages/FinancialSettingsPage").then((module) => ({ default: module.FinancialSettingsPage }))
 );
+const FinancialCashPage = lazy(() =>
+  import("../pages/FinancialCashPage").then((module) => ({ default: module.FinancialCashPage }))
+);
 
 function ForbiddenPage() {
   return (
@@ -170,6 +173,16 @@ export function App() {
           element={
             <ProtectedLayout>
               <MyProfilePage />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/financeiro/caixa"
+          element={
+            <ProtectedLayout>
+              <RequirePermission permission={PERMISSIONS.FINANCE_CASH_READ}>
+                <FinancialCashPage />
+              </RequirePermission>
             </ProtectedLayout>
           }
         />

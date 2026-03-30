@@ -435,3 +435,34 @@ Credenciais criadas pelo seed:
   - indicador quando existir atividade aberta com prioridade alta.
 - Modal `Nova tarefa` reorganizado em grid com labels acima de cada campo.
 - Fluxo de atividades/Comentarios sem dependencia de permissao por feature flag (somente autenticacao + regra de status).
+
+## Atualizacao 2026-03-30 (Caixa diario)
+
+- Novo modulo `Caixa Diario` no financeiro, com rota e menu separados.
+- Novas permissoes:
+  - `finance.cash.read`
+  - `finance.cash.write`
+  - `finance.cash.close`
+  - `finance.cash.password.manage`
+- Fluxo do caixa:
+  - abertura com saldo inicial
+  - movimentacoes do dia (`Recebimento`, `Saida`, `Sangria`, `Suprimento`, `Ajuste positivo`, `Ajuste negativo`)
+  - fechamento com valor contado e diferenca
+- Categorias de recebimento/saldo:
+  - `PIX`
+  - `Cartao credito`
+  - `Cartao debito`
+  - `Dinheiro`
+- Resumos disponiveis:
+  - saldo fisico diario
+  - saldo mensal em dinheiro
+  - saldo diario por categoria
+  - saldo mensal por categoria
+- Os saldos do caixa tambem aparecem nos KPIs da tela de `Lancamentos Financeiros` quando o usuario possui permissao de leitura do caixa.
+- Nova aba em `Configuracoes Financeiras`:
+  - `Caixa e senha`
+  - visivel apenas para quem possui `finance.cash.password.manage`
+  - a senha e armazenada com hash e passa a ser obrigatoria no fechamento do caixa
+- Migration nova:
+  - `20260330093000_financial_cash_daily`
+  - `20260330110000_system_setting_cash_password`
