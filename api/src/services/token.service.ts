@@ -7,6 +7,7 @@ interface AccessTokenPayload {
   sub: string;
   profileId: string;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   permissions: string[];
 }
 

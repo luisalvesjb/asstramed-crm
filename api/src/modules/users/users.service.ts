@@ -1,7 +1,10 @@
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../errors/app-error";
 import { comparePassword, hashPassword } from "../../utils/password";
-import { setUserPermissions } from "../../services/permission.service";
+import {
+  setUserPermissions,
+  userHasExplicitPermission
+} from "../../services/permission.service";
 import { registerAuditLog } from "../../services/audit.service";
 import {
   ChangeMyPasswordInput,
@@ -11,6 +14,7 @@ import {
 } from "./users.interfaces";
 import fs from "fs";
 import path from "path";
+import { PERMISSIONS } from "../../config/permissions";
 
 type UserWithProfile = {
   id: string;
@@ -22,9 +26,15 @@ type UserWithProfile = {
   avatarPath: string | null;
   avatarMimeType: string | null;
   isActive: boolean;
+  isHidden?: boolean;
   lastAccessAt: Date | null;
   createdAt: Date;
   updatedAt?: Date;
+  permissions?: Array<{
+    permission: {
+      key: string;
+    };
+  }>;
   profile: {
     id: string;
     key: string;
@@ -34,6 +44,8 @@ type UserWithProfile = {
 };
 
 function serializeUser(user: UserWithProfile) {
+  const explicitPermissionKeys = user.permissions?.map((item) => item.permission.key) ?? [];
+
   return {
     id: user.id,
     name: user.name,
@@ -43,6 +55,7 @@ function serializeUser(user: UserWithProfile) {
     profileKey: user.profile.key,
     profileName: user.profile.name,
     isAdmin: user.isAdmin || user.profile.isAdmin,
+    isSuperAdmin: explicitPermissionKeys.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN),
     avatarPath: user.avatarPath,
     avatarMimeType: user.avatarMimeType,
     isActive: user.isActive,
@@ -50,6 +63,14 @@ function serializeUser(user: UserWithProfile) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt ?? null
   };
+}
+
+async function assertActorIsSuperAdmin(actorId: string) {
+  const canManage = await userHasExplicitPermission(actorId, PERMISSIONS.SYSTEM_SUPER_ADMIN);
+
+  if (!canManage) {
+    throw new AppError("Somente super admin pode executar esta acao.", 403);
+  }
 }
 
 function normalizeLogin(value: string): string {
@@ -86,6 +107,15 @@ export async function listUsers() {
     },
     orderBy: { createdAt: "desc" },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -162,12 +192,30 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
           name: true,
           isAdmin: true
         }
+      },
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
       }
     }
   });
 
   if (!user) {
     throw new AppError("Usuario nao encontrado", 404);
+  }
+
+  const targetIsSuperAdmin = user.permissions.some(
+    (item) => item.permission.key === PERMISSIONS.SYSTEM_SUPER_ADMIN
+  );
+  const wantsSuperAdmin = input.grantSuperAdmin;
+
+  if (input.newPassword !== undefined || wantsSuperAdmin !== undefined || targetIsSuperAdmin) {
+    await assertActorIsSuperAdmin(actorId);
   }
 
   const nextLogin = normalizeLogin(input.login);
@@ -181,6 +229,7 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
   }
 
   const profile = await getAssignableProfile(input.profileId);
+  const nextPasswordHash = input.newPassword ? await hashPassword(input.newPassword) : undefined;
 
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -188,9 +237,19 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
       name: input.name.trim(),
       login: nextLogin,
       profileId: profile.id,
-      isAdmin: profile.isAdmin
+      isAdmin: profile.isAdmin,
+      passwordHash: nextPasswordHash
     },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -201,6 +260,42 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
       }
     }
   });
+
+  if (wantsSuperAdmin !== undefined) {
+    const currentExplicitPermissions = user.permissions.map((item) => item.permission.key);
+    const nextPermissionKeys = wantsSuperAdmin
+      ? [...new Set([...currentExplicitPermissions, PERMISSIONS.SYSTEM_SUPER_ADMIN])]
+      : currentExplicitPermissions.filter((key) => key !== PERMISSIONS.SYSTEM_SUPER_ADMIN);
+
+    await setUserPermissions(userId, nextPermissionKeys);
+  }
+
+  const refreshed = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
+      profile: {
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          isAdmin: true
+        }
+      }
+    }
+  });
+
+  if (!refreshed) {
+    throw new AppError("Usuario nao encontrado", 404);
+  }
 
   await registerAuditLog({
     actorId,
@@ -225,13 +320,29 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
     }
   });
 
-  return serializeUser(updated);
+  if (input.newPassword) {
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    });
+  }
+
+  return serializeUser(refreshed);
 }
 
 export async function getMyProfile(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -254,6 +365,15 @@ export async function updateMyProfile(userId: string, input: UpdateMyProfileInpu
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -286,6 +406,15 @@ export async function updateMyProfile(userId: string, input: UpdateMyProfileInpu
       login: nextLogin
     },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -359,6 +488,15 @@ export async function updateMyAvatar(userId: string, file?: Express.Multer.File)
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -392,6 +530,15 @@ export async function updateMyAvatar(userId: string, file?: Express.Multer.File)
       avatarMimeType: file.mimetype
     },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -433,6 +580,15 @@ export async function updateUserActive(actorId: string, userId: string, isActive
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -452,10 +608,27 @@ export async function updateUserActive(actorId: string, userId: string, isActive
     throw new AppError("Voce nao pode inativar seu proprio usuario.", 422);
   }
 
+  const targetIsSuperAdmin = user.permissions.some(
+    (item) => item.permission.key === PERMISSIONS.SYSTEM_SUPER_ADMIN
+  );
+
+  if (user.isHidden || targetIsSuperAdmin) {
+    await assertActorIsSuperAdmin(actorId);
+  }
+
   const updated = await prisma.user.update({
     where: { id: userId },
     data: { isActive },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -482,6 +655,15 @@ export async function deleteUser(actorId: string, userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      permissions: {
+        include: {
+          permission: {
+            select: {
+              key: true
+            }
+          }
+        }
+      },
       profile: {
         select: {
           id: true,
@@ -499,6 +681,14 @@ export async function deleteUser(actorId: string, userId: string) {
 
   if (actorId === userId) {
     throw new AppError("Voce nao pode excluir seu proprio usuario.", 422);
+  }
+
+  const targetIsSuperAdmin = user.permissions.some(
+    (item) => item.permission.key === PERMISSIONS.SYSTEM_SUPER_ADMIN
+  );
+
+  if (user.isHidden || targetIsSuperAdmin) {
+    await assertActorIsSuperAdmin(actorId);
   }
 
   const [assignedActivities, createdActivities, uploadedDocuments, statusChanges] = await Promise.all([

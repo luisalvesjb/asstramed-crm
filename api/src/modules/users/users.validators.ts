@@ -11,7 +11,9 @@ export const createUserSchema = z.object({
 export const updateUserProfileSchema = z.object({
   name: z.string().min(2),
   login: z.string().trim().min(3),
-  profileId: z.string().min(1)
+  profileId: z.string().min(1),
+  newPassword: z.string().min(6).optional(),
+  grantSuperAdmin: z.boolean().optional()
 });
 
 export const updateUserActiveSchema = z.object({

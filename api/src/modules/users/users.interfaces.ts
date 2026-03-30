@@ -10,6 +10,8 @@ export interface UpdateUserProfileInput {
   name: string;
   login: string;
   profileId: string;
+  newPassword?: string;
+  grantSuperAdmin?: boolean;
 }
 
 export interface UpdateMyProfileInput {

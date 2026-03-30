@@ -21,6 +21,7 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
     id: payload.sub,
     profileId: payload.profileId,
     isAdmin: payload.isAdmin,
+    isSuperAdmin: payload.isSuperAdmin,
     permissions: payload.permissions
   };
 

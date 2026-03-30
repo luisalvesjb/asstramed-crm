@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   USERS_READ: "users.read",
   USERS_WRITE: "users.write",
   USERS_PROFILE_EDIT: "users.profile.edit",
+  SYSTEM_SUPER_ADMIN: "system.super_admin",
   USERS_ACTIVATE: "users.activate",
   USERS_DELETE: "users.delete",
   PERMISSIONS_MANAGE: "permissions.manage",

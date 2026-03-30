@@ -11,6 +11,7 @@ import { resolveEffectivePermissions } from "../../services/permission.service";
 import { registerAuditLog } from "../../services/audit.service";
 import { env } from "../../config/env";
 import { durationToMs } from "../../utils/duration";
+import { PERMISSIONS } from "../../config/permissions";
 
 function serializeUser(user: {
   id: string;
@@ -24,6 +25,7 @@ function serializeUser(user: {
     isAdmin: boolean;
   };
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   avatarPath: string | null;
   avatarMimeType: string | null;
 }): {
@@ -35,6 +37,7 @@ function serializeUser(user: {
   profileKey: string;
   profileName: string;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   avatarPath: string | null;
   avatarMimeType: string | null;
 } {
@@ -47,6 +50,7 @@ function serializeUser(user: {
     profileKey: user.profile.key,
     profileName: user.profile.name,
     isAdmin: user.isAdmin || user.profile.isAdmin,
+    isSuperAdmin: user.isSuperAdmin,
     avatarPath: user.avatarPath,
     avatarMimeType: user.avatarMimeType
   };
@@ -83,11 +87,13 @@ export async function login(login: string, password: string) {
 
   const isAdmin = user.isAdmin || user.profile.isAdmin;
   const explicitPermissions = user.permissions.map((item) => item.permission.key);
+  const isSuperAdmin = explicitPermissions.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN);
   const resolvedPermissions = await resolveEffectivePermissions(user.profileId, explicitPermissions, isAdmin);
   const accessToken = signAccessToken({
     sub: user.id,
     profileId: user.profileId,
     isAdmin,
+    isSuperAdmin,
     permissions: resolvedPermissions
   });
   const refreshToken = signRefreshToken(user.id);
@@ -119,7 +125,10 @@ export async function login(login: string, password: string) {
   });
 
   return {
-    user: serializeUser(user),
+    user: serializeUser({
+      ...user,
+      isSuperAdmin
+    }),
     permissions: resolvedPermissions,
     accessToken,
     refreshToken
@@ -169,12 +178,14 @@ export async function refresh(refreshToken: string) {
 
   const isAdmin = user.isAdmin || user.profile.isAdmin;
   const explicitPermissions = user.permissions.map((item) => item.permission.key);
+  const isSuperAdmin = explicitPermissions.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN);
   const resolvedPermissions = await resolveEffectivePermissions(user.profileId, explicitPermissions, isAdmin);
 
   const newAccessToken = signAccessToken({
     sub: user.id,
     profileId: user.profileId,
     isAdmin,
+    isSuperAdmin,
     permissions: resolvedPermissions
   });
   const newRefreshToken = signRefreshToken(user.id);
@@ -246,10 +257,14 @@ export async function me(userId: string) {
 
   const isAdmin = user.isAdmin || user.profile.isAdmin;
   const explicitPermissions = user.permissions.map((item) => item.permission.key);
+  const isSuperAdmin = explicitPermissions.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN);
   const resolvedPermissions = await resolveEffectivePermissions(user.profileId, explicitPermissions, isAdmin);
 
   return {
-    user: serializeUser(user),
+    user: serializeUser({
+      ...user,
+      isSuperAdmin
+    }),
     permissions: resolvedPermissions
   };
 }

@@ -5,7 +5,7 @@ import { PERMISSIONS } from "../constants/permissions";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { ApiUser, Profile, ProfilesResponse } from "../types/api";
-import { AppButton, AppInput, AppModal, AppSelect, AppTable, AppTag } from "../ui/components";
+import { AppButton, AppCheckbox, AppInput, AppModal, AppSelect, AppTable, AppTag } from "../ui/components";
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
 import { formatDateTime } from "../utils/format";
 
@@ -31,13 +31,17 @@ export function UsersPage() {
   const [editForm, setEditForm] = useState({
     name: "",
     login: "",
-    profileId: ""
+    profileId: "",
+    newPassword: "",
+    grantSuperAdmin: false
   });
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const canCreate = hasPermission(PERMISSIONS.USERS_WRITE);
   const canEditProfile = hasPermission(PERMISSIONS.USERS_PROFILE_EDIT);
   const canActivate = hasPermission(PERMISSIONS.USERS_ACTIVATE);
   const canDelete = hasPermission(PERMISSIONS.USERS_DELETE);
+  const canManageSuperAdmin = Boolean(user?.isSuperAdmin);
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) ?? null,
@@ -174,8 +178,11 @@ export function UsersPage() {
     setEditForm({
       name: entry.name,
       login: entry.login,
-      profileId: entry.profileId
+      profileId: entry.profileId,
+      newPassword: "",
+      grantSuperAdmin: entry.isSuperAdmin
     });
+    setShowEditPassword(false);
     setEditModalOpen(true);
   }
 
@@ -239,7 +246,9 @@ export function UsersPage() {
       await api.patch(`/users/${selectedUser.id}/profile`, {
         name: editForm.name.trim(),
         login: editForm.login.trim().toLowerCase(),
-        profileId: editForm.profileId
+        profileId: editForm.profileId,
+        newPassword: editForm.newPassword.trim() || undefined,
+        grantSuperAdmin: canManageSuperAdmin ? editForm.grantSuperAdmin : undefined
       });
 
       notifySuccess("Usuario atualizado");
@@ -399,6 +408,32 @@ export function UsersPage() {
               disabled={!canEditProfile}
             />
           </div>
+          {canManageSuperAdmin && (
+            <div className="field-block">
+              <label className="field-label">Nova senha</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <AppInput
+                  type={showEditPassword ? "text" : "password"}
+                  value={editForm.newPassword}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                />
+                <AppButton onClick={() => setShowEditPassword((prev) => !prev)}>
+                  {showEditPassword ? "Ocultar" : "Ver senha"}
+                </AppButton>
+              </div>
+            </div>
+          )}
+          {canManageSuperAdmin && (
+            <label className="permission-item" style={{ gridColumn: "1 / -1" }}>
+              <AppCheckbox
+                checked={editForm.grantSuperAdmin}
+                onChange={(event) =>
+                  setEditForm((prev) => ({ ...prev, grantSuperAdmin: event.target.checked }))
+                }
+              />
+              Conceder permissao de super admin
+            </label>
+          )}
           <div>
             <strong>Status atual:</strong>{" "}
             {selectedUser?.isActive ? (

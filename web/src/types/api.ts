@@ -9,6 +9,7 @@ export interface ApiUser {
   profileKey: string;
   profileName: string;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   avatarPath?: string | null;
   avatarMimeType?: string | null;
   lastAccessAt?: string | null;

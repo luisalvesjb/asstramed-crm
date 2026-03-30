@@ -5,6 +5,7 @@ declare global {
         id: string;
         profileId: string;
         isAdmin: boolean;
+        isSuperAdmin: boolean;
         permissions: string[];
       };
     }

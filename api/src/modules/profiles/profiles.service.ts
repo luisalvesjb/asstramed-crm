@@ -6,7 +6,7 @@ import {
   syncPermissionCatalog,
   syncSystemProfiles
 } from "../../services/permission.service";
-import { ALL_PERMISSION_KEYS } from "../../config/permissions";
+import { ALL_PERMISSION_KEYS, PERMISSIONS } from "../../config/permissions";
 import {
   CreateProfileInput,
   ProfileOutput,
@@ -45,7 +45,9 @@ function toProfileOutput(profile: ProfileWithPermissions, userCount: number): Pr
     isSystem: profile.isSystem,
     isActive: profile.isActive,
     userCount,
-    permissionKeys: profile.permissions.map((item) => item.permission.key)
+    permissionKeys: profile.permissions
+      .map((item) => item.permission.key)
+      .filter((key) => key !== PERMISSIONS.SYSTEM_SUPER_ADMIN)
   };
 }
 
@@ -103,7 +105,7 @@ export async function listProfiles(): Promise<ProfilesListOutput> {
   const permissionsCatalog = await prisma.permission.findMany({
     where: {
       key: {
-        in: ALL_PERMISSION_KEYS
+        in: ALL_PERMISSION_KEYS.filter((key) => key !== PERMISSIONS.SYSTEM_SUPER_ADMIN)
       }
     },
     orderBy: { key: "asc" },
@@ -162,6 +164,10 @@ export async function getProfileById(profileId: string): Promise<ProfileOutput> 
 
 export async function createProfile(actorId: string, actorIsAdmin: boolean, input: CreateProfileInput): Promise<ProfileOutput> {
   await syncPermissionCatalog();
+
+  if (input.permissionKeys.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN)) {
+    throw new AppError("Permissao system.super_admin nao pode ser atribuida por perfil.", 422);
+  }
 
   const normalizedKey = normalizeProfileKey(input.key ?? input.name);
 
@@ -312,6 +318,10 @@ export async function updateProfilePermissions(
 
   if (profile.isAdmin) {
     throw new AppError("Perfis administradores possuem acesso total por padrao", 422);
+  }
+
+  if (permissionKeys.includes(PERMISSIONS.SYSTEM_SUPER_ADMIN)) {
+    throw new AppError("Permissao system.super_admin nao pode ser atribuida por perfil.", 422);
   }
 
   await setProfilePermissions(profileId, permissionKeys);

@@ -21,6 +21,7 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   "users.read": "Visualizar usuarios",
   "users.write": "Criar e alterar usuarios",
   "users.profile.edit": "Editar dados e perfil de usuarios",
+  "system.super_admin": "Super admin tecnico para suporte e gestao sensivel",
   "users.activate": "Ativar e inativar usuarios",
   "users.delete": "Excluir usuarios",
   "permissions.manage": "Gerenciar feature flags e permissoes",
@@ -123,6 +124,22 @@ export async function getUserExplicitPermissionKeys(userId: string): Promise<str
 
   const allowed = new Set<string>(ALL_PERMISSION_KEYS);
   return userPermissions.map((item) => item.permission.key).filter((key) => allowed.has(key));
+}
+
+export async function userHasExplicitPermission(userId: string, permissionKey: string): Promise<boolean> {
+  const permission = await prisma.userPermission.findFirst({
+    where: {
+      userId,
+      permission: {
+        key: permissionKey
+      }
+    },
+    select: {
+      userId: true
+    }
+  });
+
+  return Boolean(permission);
 }
 
 export async function setUserPermissions(userId: string, permissionKeys: string[]): Promise<void> {

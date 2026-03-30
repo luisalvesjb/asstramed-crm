@@ -7,6 +7,7 @@ export interface AuthUser {
   profileKey: string;
   profileName: string;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   avatarPath?: string | null;
   avatarMimeType?: string | null;
 }
