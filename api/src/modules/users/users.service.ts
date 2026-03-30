@@ -81,6 +81,9 @@ async function getAssignableProfile(profileId: string) {
 
 export async function listUsers() {
   const users = await prisma.user.findMany({
+    where: {
+      isHidden: false
+    },
     orderBy: { createdAt: "desc" },
     include: {
       profile: {

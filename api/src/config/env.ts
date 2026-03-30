@@ -10,7 +10,10 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
-  JWT_REFRESH_EXPIRES_IN: z.string().default("7d")
+  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+  SUPPORT_ADMIN_LOGIN: z.string().optional(),
+  SUPPORT_ADMIN_PASSWORD: z.string().optional(),
+  SUPPORT_ADMIN_NAME: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);

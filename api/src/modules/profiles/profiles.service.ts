@@ -14,6 +14,17 @@ import {
   UpdateProfileInput
 } from "./profiles.interfaces";
 
+type ProfileWithPermissions = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isAdmin: boolean;
+  isSystem: boolean;
+  isActive: boolean;
+  permissions: Array<{ permission: { key: string } }>;
+};
+
 function normalizeProfileKey(input: string): string {
   return input
     .trim()
@@ -24,17 +35,7 @@ function normalizeProfileKey(input: string): string {
     .toUpperCase();
 }
 
-function toProfileOutput(profile: {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
-  isAdmin: boolean;
-  isSystem: boolean;
-  isActive: boolean;
-  permissions: Array<{ permission: { key: string } }>;
-  _count: { users: number };
-}): ProfileOutput {
+function toProfileOutput(profile: ProfileWithPermissions, userCount: number): ProfileOutput {
   return {
     id: profile.id,
     key: profile.key,
@@ -43,7 +44,7 @@ function toProfileOutput(profile: {
     isAdmin: profile.isAdmin,
     isSystem: profile.isSystem,
     isActive: profile.isActive,
-    userCount: profile._count.users,
+    userCount,
     permissionKeys: profile.permissions.map((item) => item.permission.key)
   };
 }
@@ -77,11 +78,6 @@ async function findProfileOutputById(profileId: string): Promise<ProfileOutput> 
             key: "asc"
           }
         }
-      },
-      _count: {
-        select: {
-          users: true
-        }
       }
     }
   });
@@ -90,7 +86,14 @@ async function findProfileOutputById(profileId: string): Promise<ProfileOutput> 
     throw new AppError("Perfil nao encontrado", 404);
   }
 
-  return toProfileOutput(profile);
+  const userCount = await prisma.user.count({
+    where: {
+      profileId,
+      isHidden: false
+    }
+  });
+
+  return toProfileOutput(profile, userCount);
 }
 
 export async function listProfiles(): Promise<ProfilesListOutput> {
@@ -127,17 +130,26 @@ export async function listProfiles(): Promise<ProfilesListOutput> {
             key: "asc"
           }
         }
-      },
-      _count: {
-        select: {
-          users: true
-        }
       }
     }
   });
 
+  const visibleUserCounts = await prisma.user.groupBy({
+    by: ["profileId"],
+    where: {
+      isHidden: false
+    },
+    _count: {
+      _all: true
+    }
+  });
+
+  const countByProfileId = new Map(
+    visibleUserCounts.map((row) => [row.profileId, row._count._all])
+  );
+
   return {
-    profiles: profiles.map(toProfileOutput),
+    profiles: profiles.map((profile) => toProfileOutput(profile, countByProfileId.get(profile.id) ?? 0)),
     permissionsCatalog
   };
 }

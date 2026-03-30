@@ -34,8 +34,8 @@ relatorios -> colocar flag em aberto
 
 ------------
 
-colocaR mascara
-status automatico e nao aleravel
+colocaR mascara numerica nos campos de valores 
+status automatico (calculado pelo venc e patgo - explicar)
 colocar centro de custo antes
 
 ordem
