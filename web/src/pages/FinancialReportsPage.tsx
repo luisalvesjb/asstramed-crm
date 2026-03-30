@@ -84,6 +84,13 @@ export function FinancialReportsPage() {
   const [outflowByDay, setOutflowByDay] = useState<OutflowByDayResponse | null>(null);
 
   const paidTodayRows = useMemo(() => dailyReport?.paidToday ?? [], [dailyReport]);
+  const categoryOptions = useMemo(
+    () =>
+      categories
+        .filter((item) => !costCenterId || item.costCenterId === costCenterId)
+        .map((item) => ({ value: item.id, label: item.name })),
+    [categories, costCenterId]
+  );
 
   async function loadLookups() {
     const [categoryResponse, costCenterResponse, paymentMethodResponse] = await Promise.all([
@@ -166,7 +173,7 @@ export function FinancialReportsPage() {
           value={categoryId || undefined}
           allowClear
           placeholder="Categoria"
-          options={categories.map((item) => ({ value: item.id, label: item.name }))}
+          options={categoryOptions}
           onChange={(value) => setCategoryId((value as string) || "")}
         />
 
@@ -175,7 +182,18 @@ export function FinancialReportsPage() {
           allowClear
           placeholder="Centro de custo"
           options={costCenters.map((item) => ({ value: item.id, label: item.name }))}
-          onChange={(value) => setCostCenterId((value as string) || "")}
+          onChange={(value) => {
+            const nextValue = (value as string) || "";
+            setCostCenterId(nextValue);
+            setCategoryId((current) => {
+              if (!current || !nextValue) {
+                return current;
+              }
+
+              const currentCategory = categories.find((item) => item.id === current);
+              return currentCategory?.costCenterId === nextValue ? current : "";
+            });
+          }}
         />
 
         <DashboardFilterSelect

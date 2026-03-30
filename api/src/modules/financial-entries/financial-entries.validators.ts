@@ -1,4 +1,4 @@
-import { FinancialEntryStatus, FinancialRecurrenceCycle } from "@prisma/client";
+import { FinancialEntryStatus } from "@prisma/client";
 import { z } from "zod";
 
 export const financialEntryIdParamSchema = z.object({
@@ -28,17 +28,15 @@ export const createFinancialEntrySchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive(),
   amountPaid: z.coerce.number().nonnegative().optional(),
-  dueDate: z.coerce.date(),
+  dueDate: z.coerce.date().optional(),
+  installmentCount: z.coerce.number().int().min(1).max(120).default(1),
+  installmentDates: z.array(z.coerce.date()).optional(),
   paymentDate: z.coerce.date().optional(),
-  launchDate: z.coerce.date().optional(),
   status: z.nativeEnum(FinancialEntryStatus).optional(),
   categoryId: z.string().uuid(),
   costCenterId: z.string().uuid().optional(),
   paymentMethodId: z.string().uuid().optional(),
   paymentKey: z.string().optional(),
-  isFixed: z.boolean().default(false),
-  recurrenceCycle: z.nativeEnum(FinancialRecurrenceCycle).default(FinancialRecurrenceCycle.NONE),
-  recurrenceEndDate: z.coerce.date().optional()
 });
 
 export const updateFinancialEntrySchema = z.object({
@@ -48,15 +46,11 @@ export const updateFinancialEntrySchema = z.object({
   amountPaid: z.coerce.number().nonnegative().nullable().optional(),
   dueDate: z.coerce.date().optional(),
   paymentDate: z.coerce.date().nullable().optional(),
-  launchDate: z.coerce.date().optional(),
   status: z.nativeEnum(FinancialEntryStatus).optional(),
   categoryId: z.string().uuid().optional(),
   costCenterId: z.string().uuid().nullable().optional(),
   paymentMethodId: z.string().uuid().nullable().optional(),
-  paymentKey: z.string().nullable().optional(),
-  isFixed: z.boolean().optional(),
-  recurrenceCycle: z.nativeEnum(FinancialRecurrenceCycle).optional(),
-  recurrenceEndDate: z.coerce.date().nullable().optional()
+  paymentKey: z.string().nullable().optional()
 });
 
 export const payFinancialEntrySchema = z.object({

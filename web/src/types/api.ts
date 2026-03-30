@@ -218,9 +218,11 @@ export interface FinancialCategory {
   id: string;
   name: string;
   description?: string | null;
+  costCenterId?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  costCenter?: CostCenter | null;
 }
 
 export interface CostCenter {
@@ -247,6 +249,8 @@ export interface FinancialEntry {
   description?: string | null;
   amount: string | number;
   amountPaid?: string | number | null;
+  installmentNumber: number;
+  installmentCount: number;
   status: FinancialEntryStatus;
   dueDate: string;
   paymentDate?: string | null;

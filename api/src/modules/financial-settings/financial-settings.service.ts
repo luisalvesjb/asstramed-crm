@@ -6,17 +6,20 @@ interface FinancialSettingInput {
   name: string;
   description?: string;
   isActive?: boolean;
+  costCenterId?: string;
 }
 
 interface FinancialSettingUpdateInput {
   name?: string;
   description?: string;
   isActive?: boolean;
+  costCenterId?: string | null;
 }
 
 interface FinancialSettingListFilters {
   status?: "active" | "inactive" | "all";
   includeUsedInactive?: boolean;
+  costCenterId?: string;
 }
 
 function normalizeNullable(value?: string): string | null {
@@ -28,20 +31,22 @@ function normalizeNullable(value?: string): string | null {
 function buildCategoryWhere(filters?: FinancialSettingListFilters) {
   const status = filters?.status ?? "active";
   const includeUsedInactive = filters?.includeUsedInactive ?? false;
+  const baseWhere = filters?.costCenterId ? { costCenterId: filters.costCenterId } : {};
 
   if (status === "inactive") {
-    return { isActive: false };
+    return { ...baseWhere, isActive: false };
   }
 
   if (status === "all") {
-    return undefined;
+    return Object.keys(baseWhere).length ? baseWhere : undefined;
   }
 
   if (!includeUsedInactive) {
-    return { isActive: true };
+    return { ...baseWhere, isActive: true };
   }
 
   return {
+    ...baseWhere,
     OR: [
       { isActive: true },
       {
@@ -127,11 +132,24 @@ function ensureNotTransferPaymentMethodName(name: string) {
 export async function listCategories(filters?: FinancialSettingListFilters) {
   return prisma.financialCategory.findMany({
     where: buildCategoryWhere(filters),
+    include: {
+      costCenter: true
+    },
     orderBy: { name: "asc" }
   });
 }
 
 export async function createCategory(actorId: string, input: FinancialSettingInput) {
+  if (!input.costCenterId) {
+    throw new AppError("Selecione o centro de custo da categoria", 422);
+  }
+
+  const center = await prisma.costCenter.findUnique({ where: { id: input.costCenterId } });
+
+  if (!center || !center.isActive) {
+    throw new AppError("Centro de custo invalido para a categoria", 422);
+  }
+
   const exists = await prisma.financialCategory.findFirst({
     where: {
       name: {
@@ -149,7 +167,11 @@ export async function createCategory(actorId: string, input: FinancialSettingInp
     data: {
       name: input.name.trim(),
       description: normalizeNullable(input.description),
+      costCenterId: input.costCenterId,
       isActive: input.isActive ?? true
+    },
+    include: {
+      costCenter: true
     }
   });
 
@@ -168,6 +190,18 @@ export async function updateCategory(actorId: string, id: string, input: Financi
 
   if (!current) {
     throw new AppError("Categoria financeira nao encontrada", 404);
+  }
+
+  if (input.costCenterId !== undefined) {
+    if (!input.costCenterId) {
+      throw new AppError("Selecione o centro de custo da categoria", 422);
+    }
+
+    const center = await prisma.costCenter.findUnique({ where: { id: input.costCenterId } });
+
+    if (!center || !center.isActive) {
+      throw new AppError("Centro de custo invalido para a categoria", 422);
+    }
   }
 
   const nextName = input.name?.trim();
@@ -193,7 +227,11 @@ export async function updateCategory(actorId: string, id: string, input: Financi
     data: {
       name: nextName,
       description: input.description !== undefined ? normalizeNullable(input.description) : undefined,
+      costCenterId: input.costCenterId === undefined ? undefined : input.costCenterId,
       isActive: input.isActive
+    },
+    include: {
+      costCenter: true
     }
   });
 

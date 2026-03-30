@@ -206,12 +206,15 @@ model FinancialCategory {
   id          String           @id @default(uuid())
   name        String
   description String?
+  costCenterId String?
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   entries     FinancialEntry[]
+  costCenter  CostCenter?      @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
 
   @@unique([name])
+  @@index([costCenterId])
 }
 
 model CostCenter {
@@ -221,6 +224,7 @@ model CostCenter {
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  categories  FinancialCategory[]
   entries     FinancialEntry[]
 
   @@unique([name])
@@ -244,6 +248,8 @@ model FinancialEntry {
   description            String?
   amount                 Decimal
   amountPaid             Decimal?
+  installmentNumber      Int                      @default(1)
+  installmentCount       Int                      @default(1)
   status                 FinancialEntryStatus     @default(PENDENTE)
   dueDate                DateTime
   paymentDate            DateTime?

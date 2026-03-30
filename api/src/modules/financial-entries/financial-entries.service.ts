@@ -29,17 +29,15 @@ interface CreateFinancialEntryInput {
   description?: string;
   amount: number;
   amountPaid?: number;
-  dueDate: Date;
+  dueDate?: Date;
+  installmentCount: number;
+  installmentDates?: Date[];
   paymentDate?: Date;
-  launchDate?: Date;
   status?: FinancialEntryStatus;
   categoryId: string;
   costCenterId?: string;
   paymentMethodId?: string;
   paymentKey?: string;
-  isFixed: boolean;
-  recurrenceCycle: FinancialRecurrenceCycle;
-  recurrenceEndDate?: Date;
 }
 
 interface UpdateFinancialEntryInput {
@@ -49,15 +47,11 @@ interface UpdateFinancialEntryInput {
   amountPaid?: number | null;
   dueDate?: Date;
   paymentDate?: Date | null;
-  launchDate?: Date;
   status?: FinancialEntryStatus;
   categoryId?: string;
   costCenterId?: string | null;
   paymentMethodId?: string | null;
   paymentKey?: string | null;
-  isFixed?: boolean;
-  recurrenceCycle?: FinancialRecurrenceCycle;
-  recurrenceEndDate?: Date | null;
 }
 
 function normalizeNullableText(value?: string): string | null {
@@ -122,16 +116,37 @@ async function validateReferences(input: {
   costCenterId?: string | null;
   paymentMethodId?: string | null;
 }) {
+  let resolvedCostCenterId = input.costCenterId ?? null;
+  let categoryId = input.categoryId;
+
   if (input.categoryId) {
-    const category = await prisma.financialCategory.findUnique({ where: { id: input.categoryId } });
+    const category = await prisma.financialCategory.findUnique({
+      where: { id: input.categoryId },
+      select: {
+        id: true,
+        isActive: true,
+        costCenterId: true
+      }
+    });
 
     if (!category || !category.isActive) {
       throw new AppError("Categoria financeira invalida", 422);
     }
+
+    categoryId = category.id;
+    resolvedCostCenterId = input.costCenterId ?? category.costCenterId ?? null;
+
+    if (!resolvedCostCenterId) {
+      throw new AppError("Categoria financeira sem centro de custo vinculado", 422);
+    }
+
+    if (category.costCenterId && resolvedCostCenterId !== category.costCenterId) {
+      throw new AppError("Categoria nao pertence ao centro de custo informado", 422);
+    }
   }
 
-  if (input.costCenterId) {
-    const center = await prisma.costCenter.findUnique({ where: { id: input.costCenterId } });
+  if (resolvedCostCenterId) {
+    const center = await prisma.costCenter.findUnique({ where: { id: resolvedCostCenterId } });
 
     if (!center || !center.isActive) {
       throw new AppError("Centro de custo invalido", 422);
@@ -146,9 +161,31 @@ async function validateReferences(input: {
     }
 
     if (/transfer/i.test(method.name)) {
-      throw new AppError("Forma de pagamento 'Transferencia' foi descontinuada. Use PIX ou Boleto.", 422);
+      throw new AppError("Forma de pagamento 'Transferencia' foi descontinuada. Use PIX, Boleto ou outro metodo ativo.", 422);
     }
   }
+
+  return {
+    categoryId,
+    costCenterId: resolvedCostCenterId,
+    paymentMethodId: input.paymentMethodId ?? null
+  };
+}
+
+function resolveInstallmentDates(input: CreateFinancialEntryInput): Date[] {
+  if (input.installmentCount <= 1) {
+    if (!input.dueDate) {
+      throw new AppError("Informe a data da parcela", 422);
+    }
+
+    return [input.dueDate];
+  }
+
+  if (!input.installmentDates || input.installmentDates.length !== input.installmentCount) {
+    throw new AppError("Preencha a data de todas as parcelas", 422);
+  }
+
+  return input.installmentDates;
 }
 
 async function syncOverdueStatuses(): Promise<void> {
@@ -292,48 +329,83 @@ export async function listFinancialEntries(filters: ListFinancialEntriesFilters)
 }
 
 export async function createFinancialEntry(actorId: string, input: CreateFinancialEntryInput) {
-  await validateReferences(input);
+  const references = await validateReferences(input);
+  const installmentDates = resolveInstallmentDates(input);
+  const categoryId = references.categoryId;
 
-  if (input.isFixed && input.recurrenceCycle === FinancialRecurrenceCycle.NONE) {
-    throw new AppError("Lancamento fixo deve informar ciclo de repeticao", 422);
-  }
-
-  if (!input.isFixed && input.recurrenceCycle !== FinancialRecurrenceCycle.NONE) {
-    throw new AppError("Lancamento nao fixo nao pode ter ciclo de repeticao", 422);
+  if (!categoryId) {
+    throw new AppError("Categoria financeira invalida", 422);
   }
 
   const status = input.paymentDate ? FinancialEntryStatus.PAGO : input.status ?? FinancialEntryStatus.PENDENTE;
   const amountPaid =
     status === FinancialEntryStatus.PAGO ? input.amountPaid ?? input.amount : null;
 
-  const entry = await prisma.financialEntry.create({
-    data: {
-      title: input.title.trim(),
-      description: normalizeNullableText(input.description),
-      amount: input.amount,
-      amountPaid,
-      dueDate: input.dueDate,
-      paymentDate: input.paymentDate,
-      launchDate: input.launchDate ?? new Date(),
-      status,
-      categoryId: input.categoryId,
-      costCenterId: input.costCenterId,
-      paymentMethodId: input.paymentMethodId,
-      paymentKey: normalizeNullableText(input.paymentKey),
-      isFixed: input.isFixed,
-      recurrenceCycle: input.recurrenceCycle,
-      recurrenceEndDate: input.recurrenceEndDate,
-      nextRecurrenceDate:
-        input.isFixed && input.recurrenceCycle !== FinancialRecurrenceCycle.NONE
-          ? addCycle(input.dueDate, input.recurrenceCycle)
-          : null,
-      createdById: actorId
-    },
-    include: {
-      category: true,
-      costCenter: true,
-      paymentMethod: true
+  const launchDate = new Date();
+  const normalizedTitle = input.title.trim();
+  const normalizedDescription = normalizeNullableText(input.description);
+  const normalizedPaymentKey = normalizeNullableText(input.paymentKey);
+
+  const entry = await prisma.$transaction(async (tx) => {
+    const root = await tx.financialEntry.create({
+      data: {
+        title: normalizedTitle,
+        description: normalizedDescription,
+        amount: input.amount,
+        amountPaid,
+        installmentNumber: 1,
+        installmentCount: input.installmentCount,
+        dueDate: installmentDates[0],
+        paymentDate: input.paymentDate,
+        launchDate,
+        status,
+        categoryId,
+        costCenterId: references.costCenterId,
+        paymentMethodId: references.paymentMethodId,
+        paymentKey: normalizedPaymentKey,
+        isFixed: false,
+        recurrenceCycle: FinancialRecurrenceCycle.NONE,
+        recurrenceEndDate: null,
+        nextRecurrenceDate: null,
+        createdById: actorId
+      }
+    });
+
+    for (let index = 1; index < installmentDates.length; index += 1) {
+      await tx.financialEntry.create({
+        data: {
+          title: normalizedTitle,
+          description: normalizedDescription,
+          amount: input.amount,
+          amountPaid,
+          installmentNumber: index + 1,
+          installmentCount: input.installmentCount,
+          dueDate: installmentDates[index],
+          paymentDate: input.paymentDate,
+          launchDate,
+          status,
+          categoryId,
+          costCenterId: references.costCenterId,
+          paymentMethodId: references.paymentMethodId,
+          paymentKey: normalizedPaymentKey,
+          isFixed: false,
+          recurrenceCycle: FinancialRecurrenceCycle.NONE,
+          recurrenceEndDate: null,
+          nextRecurrenceDate: null,
+          parentEntryId: root.id,
+          createdById: actorId
+        }
+      });
     }
+
+    return tx.financialEntry.findUniqueOrThrow({
+      where: { id: root.id },
+      include: {
+        category: true,
+        costCenter: true,
+        paymentMethod: true
+      }
+    });
   });
 
   await registerAuditLog({
@@ -344,8 +416,7 @@ export async function createFinancialEntry(actorId: string, input: CreateFinanci
     payload: {
       amount: entry.amount,
       dueDate: entry.dueDate,
-      isFixed: entry.isFixed,
-      recurrenceCycle: entry.recurrenceCycle
+      installmentCount: entry.installmentCount
     }
   });
 
@@ -363,18 +434,11 @@ export async function updateFinancialEntry(
     throw new AppError("Lancamento financeiro nao encontrado", 404);
   }
 
-  await validateReferences({
-    categoryId: input.categoryId,
-    costCenterId: input.costCenterId,
-    paymentMethodId: input.paymentMethodId
+  const references = await validateReferences({
+    categoryId: input.categoryId ?? current.categoryId,
+    costCenterId: input.costCenterId === undefined ? current.costCenterId : input.costCenterId,
+    paymentMethodId: input.paymentMethodId === undefined ? current.paymentMethodId : input.paymentMethodId
   });
-
-  const nextIsFixed = input.isFixed ?? current.isFixed;
-  const nextCycle = input.recurrenceCycle ?? current.recurrenceCycle;
-
-  if (nextIsFixed && nextCycle === FinancialRecurrenceCycle.NONE) {
-    throw new AppError("Lancamento fixo deve informar ciclo de repeticao", 422);
-  }
 
   const paymentDate = input.paymentDate === undefined ? current.paymentDate : input.paymentDate;
 
@@ -404,21 +468,17 @@ export async function updateFinancialEntry(
           : null,
       dueDate,
       paymentDate,
-      launchDate: input.launchDate,
       status: nextStatus,
-      categoryId: input.categoryId,
-      costCenterId: input.costCenterId === undefined ? undefined : input.costCenterId,
-      paymentMethodId: input.paymentMethodId === undefined ? undefined : input.paymentMethodId,
+      categoryId: input.categoryId === undefined ? undefined : references.categoryId,
+      costCenterId: input.categoryId !== undefined || input.costCenterId !== undefined ? references.costCenterId : undefined,
+      paymentMethodId:
+        input.paymentMethodId === undefined ? undefined : references.paymentMethodId,
       paymentKey:
         input.paymentKey === undefined ? undefined : normalizeNullableText(input.paymentKey ?? undefined),
-      isFixed: nextIsFixed,
-      recurrenceCycle: nextCycle,
-      recurrenceEndDate:
-        input.recurrenceEndDate === undefined ? undefined : input.recurrenceEndDate,
-      nextRecurrenceDate:
-        nextIsFixed && nextCycle !== FinancialRecurrenceCycle.NONE
-          ? addCycle(dueDate, nextCycle)
-          : null
+      isFixed: false,
+      recurrenceCycle: FinancialRecurrenceCycle.NONE,
+      recurrenceEndDate: null,
+      nextRecurrenceDate: null
     },
     include: {
       category: true,

@@ -8,6 +8,30 @@ Projeto completo em `/Users/luisalves/Documents/workspace/personal/asstramed-crm
 
 ## Entrega concluida
 
+### Atualizacao 2026-03-29 (financeiro: categoria por centro, parcelas e meios de pagamento)
+
+- Categoria financeira agora pode ficar vinculada a um `Centro de Custo`.
+- Tela de `Configuracoes Financeiras`:
+  - categoria passou a exibir e exigir `Centro de Custo`
+  - listagem de categorias mostra o centro vinculado
+- Tela de `Lancamentos Financeiros`:
+  - fluxo de categoria filtrado pelo centro de custo selecionado
+  - `Data e hora do lancamento` virou automatica e somente leitura
+  - `Data de pagamento` e `Valor pago` ficaram lado a lado
+  - status visual `PENDENTE` passou a ser exibido como `A vencer`
+  - suporte a `Numero de parcelas` com datas manuais por parcela no cadastro
+  - novas parcelas sao criadas em lote e vinculadas entre si
+- Seed financeiro foi ampliado com:
+  - estrutura real de centros de custo e categorias
+  - vinculo categoria -> centro de custo
+  - novas formas de pagamento (`Permuta`, `Cartao Credito`, `Cartao Debito`, `Dinheiro`)
+- Schema ampliado com:
+  - `FinancialCategory.costCenterId`
+  - `FinancialEntry.installmentNumber`
+  - `FinancialEntry.installmentCount`
+- Migration adicionada:
+  - `api/prisma/migrations/20260329123000_financial_category_cost_center_and_installments`
+
 ### Atualizacao 2026-03-25 (landing institucional separada)
 
 - Novo app `site/` criada no monorepo para a landing publica.

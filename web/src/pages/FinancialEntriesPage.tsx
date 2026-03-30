@@ -7,12 +7,10 @@ import {
   FinancialCategory,
   FinancialEntry,
   FinancialEntryStatus,
-  FinancialRecurrenceCycle,
   PaymentMethod
 } from "../types/api";
 import {
   AppButton,
-  AppCheckbox,
   AppFileDragger,
   AppInput,
   AppModal,
@@ -22,25 +20,23 @@ import {
   KpiStatCard
 } from "../ui/components";
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
-import { formatCurrency, formatDate } from "../utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { resolveAssetUrl } from "../utils/asset-url";
 
 interface EntryFormState {
   title: string;
   description: string;
   amount: string;
-  amountPaid: string;
   dueDate: string;
+  installmentCount: string;
+  installmentDates: string[];
   paymentDate: string;
-  launchDate: string;
+  amountPaid: string;
   status: FinancialEntryStatus;
   categoryId: string;
   costCenterId: string;
   paymentMethodId: string;
   paymentKey: string;
-  isFixed: boolean;
-  recurrenceCycle: FinancialRecurrenceCycle;
-  recurrenceEndDate: string;
 }
 
 interface PayFormState {
@@ -51,19 +47,10 @@ interface PayFormState {
 }
 
 const STATUS_OPTIONS: Array<{ label: string; value: FinancialEntryStatus }> = [
-  { label: "Pendente", value: "PENDENTE" },
+  { label: "A vencer", value: "PENDENTE" },
   { label: "Pago", value: "PAGO" },
   { label: "Vencido", value: "VENCIDO" },
   { label: "Cancelado", value: "CANCELADO" }
-];
-
-const RECURRENCE_OPTIONS: Array<{ label: string; value: FinancialRecurrenceCycle }> = [
-  { label: "Sem repeticao", value: "NONE" },
-  { label: "Semanal", value: "WEEKLY" },
-  { label: "Mensal", value: "MONTHLY" },
-  { label: "Trimestral", value: "QUARTERLY" },
-  { label: "Semestral", value: "SEMIANNUAL" },
-  { label: "Anual", value: "YEARLY" }
 ];
 
 function todayInputDate(): string {
@@ -78,7 +65,7 @@ function toInputDate(value?: string | null): string {
 function statusLabel(status: FinancialEntryStatus): string {
   switch (status) {
     case "PENDENTE":
-      return "Pendente";
+      return "A vencer";
     case "PAGO":
       return "Pago";
     case "VENCIDO":
@@ -108,18 +95,16 @@ const INITIAL_FORM: EntryFormState = {
   title: "",
   description: "",
   amount: "",
-  amountPaid: "",
   dueDate: todayInputDate(),
+  installmentCount: "1",
+  installmentDates: [],
   paymentDate: "",
-  launchDate: todayInputDate(),
+  amountPaid: "",
   status: "PENDENTE",
   categoryId: "",
   costCenterId: "",
   paymentMethodId: "",
   paymentKey: "",
-  isFixed: false,
-  recurrenceCycle: "NONE",
-  recurrenceEndDate: ""
 };
 
 const INITIAL_PAY_FORM: PayFormState = {
@@ -131,6 +116,14 @@ const INITIAL_PAY_FORM: PayFormState = {
 
 function resolvePaidAmount(entry: FinancialEntry): number {
   return Number(entry.amountPaid ?? entry.amount ?? 0);
+}
+
+function resizeInstallmentDates(current: string[], nextCount: number): string[] {
+  if (nextCount <= 1) {
+    return [];
+  }
+
+  return Array.from({ length: nextCount }, (_, index) => current[index] ?? "");
 }
 
 export function FinancialEntriesPage() {
@@ -221,15 +214,29 @@ export function FinancialEntriesPage() {
     [payForm.paymentMethodId, paymentMethods]
   );
 
-  const categoryFormOptions = useMemo(
+  const categoryFilterOptions = useMemo(
     () =>
       categories
-        .filter((item) => item.isActive || item.id === form.categoryId)
+        .filter((item) => !costCenterFilter || item.costCenterId === costCenterFilter)
         .map((item) => ({
           value: item.id,
           label: item.isActive ? item.name : `${item.name} (inativa)`
         })),
-    [categories, form.categoryId]
+    [categories, costCenterFilter]
+  );
+
+  const categoryFormOptions = useMemo(
+    () =>
+      categories
+        .filter((item) => {
+          const matchesSelectedCenter = form.costCenterId ? item.costCenterId === form.costCenterId : false;
+          return matchesSelectedCenter && (item.isActive || item.id === form.categoryId);
+        })
+        .map((item) => ({
+          value: item.id,
+          label: item.isActive ? item.name : `${item.name} (inativa)`
+        })),
+    [categories, form.categoryId, form.costCenterId]
   );
 
   const costCenterFormOptions = useMemo(
@@ -248,6 +255,8 @@ export function FinancialEntriesPage() {
     [editingEntryId, entries]
   );
 
+  const installmentCount = Number(form.installmentCount || "1");
+
   const columns: TableProps<FinancialEntry>["columns"] = [
     {
       title: "Titulo",
@@ -255,6 +264,9 @@ export function FinancialEntriesPage() {
       render: (_, record) => (
         <div>
           <strong>{record.title}</strong>
+          {record.installmentCount > 1 && (
+            <div>{`Parcela ${record.installmentNumber}/${record.installmentCount}`}</div>
+          )}
           <div>{record.description || "-"}</div>
         </div>
       )
@@ -329,9 +341,9 @@ export function FinancialEntriesPage() {
         )
     },
     {
-      title: "Fixo",
-      key: "fixed",
-      render: (_, record) => (record.isFixed ? "Sim" : "Nao")
+      title: "Parcelas",
+      key: "installments",
+      render: (_, record) => record.installmentCount
     },
     {
       title: "Acoes",
@@ -448,18 +460,16 @@ export function FinancialEntriesPage() {
       title: entry.title,
       description: entry.description ?? "",
       amount: String(entry.amount ?? ""),
-      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : "",
       dueDate: toInputDate(entry.dueDate),
+      installmentCount: String(entry.installmentCount ?? 1),
+      installmentDates: [],
       paymentDate: toInputDate(entry.paymentDate),
-      launchDate: toInputDate(entry.launchDate),
+      amountPaid: entry.amountPaid != null ? String(entry.amountPaid) : "",
       status: entry.status,
       categoryId: entry.categoryId,
       costCenterId: entry.costCenterId ?? "",
       paymentMethodId: entry.paymentMethodId ?? "",
-      paymentKey: entry.paymentKey ?? "",
-      isFixed: entry.isFixed,
-      recurrenceCycle: entry.recurrenceCycle,
-      recurrenceEndDate: toInputDate(entry.recurrenceEndDate)
+      paymentKey: entry.paymentKey ?? ""
     });
     setBankSlipFile(null);
     setPaymentReceiptFile(null);
@@ -479,8 +489,18 @@ export function FinancialEntriesPage() {
   }
 
   async function saveEntry() {
-    if (!form.title.trim() || !form.amount || !form.dueDate || !form.categoryId) {
-      notifyError("Financeiro", "Preencha titulo, valor, vencimento e categoria.");
+    if (!form.title.trim() || !form.amount || !form.categoryId || !form.costCenterId) {
+      notifyError("Financeiro", "Preencha titulo, valor, centro de custo e categoria.");
+      return;
+    }
+
+    if (!editingEntryId && installmentCount <= 1 && !form.dueDate) {
+      notifyError("Financeiro", "Informe a data da parcela.");
+      return;
+    }
+
+    if (!editingEntryId && installmentCount > 1 && form.installmentDates.some((item) => !item)) {
+      notifyError("Financeiro", "Preencha a data de todas as parcelas.");
       return;
     }
 
@@ -506,17 +526,16 @@ export function FinancialEntriesPage() {
         description: form.description,
         amount: Number(form.amount),
         amountPaid: form.amountPaid ? Number(form.amountPaid) : undefined,
-        dueDate: form.dueDate,
+        dueDate: installmentCount <= 1 ? form.dueDate : undefined,
+        installmentCount,
+        installmentDates:
+          !editingEntryId && installmentCount > 1 ? form.installmentDates.filter(Boolean) : undefined,
         paymentDate: form.paymentDate || undefined,
-        launchDate: form.launchDate || undefined,
         status: form.status,
         categoryId: form.categoryId,
         costCenterId: form.costCenterId || undefined,
         paymentMethodId: form.paymentMethodId || undefined,
-        paymentKey: form.paymentKey || undefined,
-        isFixed: form.isFixed,
-        recurrenceCycle: form.isFixed ? form.recurrenceCycle : "NONE",
-        recurrenceEndDate: form.isFixed ? form.recurrenceEndDate || undefined : undefined
+        paymentKey: form.paymentKey || undefined
       };
 
       let savedEntry: FinancialEntry;
@@ -631,7 +650,7 @@ export function FinancialEntriesPage() {
 
       <div className="asstramed-kpi-grid">
         <KpiStatCard title="Pagos" value={`${kpis.paidCount} • ${formatCurrency(kpis.paidValue)}`} tone="positive" icon="check" />
-        <KpiStatCard title="Pendentes" value={`${kpis.pendingCount} • ${formatCurrency(kpis.pendingValue)}`} tone="neutral" icon="list" />
+        <KpiStatCard title="A vencer" value={`${kpis.pendingCount} • ${formatCurrency(kpis.pendingValue)}`} tone="neutral" icon="list" />
         <KpiStatCard title="Vencidos" value={`${kpis.overdueCount} • ${formatCurrency(kpis.overdueValue)}`} tone="negative" icon="warning" />
       </div>
 
@@ -653,10 +672,7 @@ export function FinancialEntriesPage() {
           value={categoryFilter || undefined}
           allowClear
           placeholder="Categoria"
-          options={categories.map((item) => ({
-            value: item.id,
-            label: item.isActive ? item.name : `${item.name} (inativa)`
-          }))}
+          options={categoryFilterOptions}
           onChange={(value) => setCategoryFilter((value as string) || "")}
         />
 
@@ -668,7 +684,18 @@ export function FinancialEntriesPage() {
             value: item.id,
             label: item.isActive ? item.name : `${item.name} (inativo)`
           }))}
-          onChange={(value) => setCostCenterFilter((value as string) || "")}
+          onChange={(value) => {
+            const nextValue = (value as string) || "";
+            setCostCenterFilter(nextValue);
+            setCategoryFilter((current) => {
+              if (!current || !nextValue) {
+                return current;
+              }
+
+              const currentCategory = categories.find((item) => item.id === current);
+              return currentCategory?.costCenterId === nextValue ? current : "";
+            });
+          }}
         />
 
         <DashboardFilterSelect
@@ -758,43 +785,19 @@ export function FinancialEntriesPage() {
             <label className="field-label">Valor do lancamento</label>
             <AppInput
               type="number"
+              step="0.01"
+              inputMode="decimal"
               value={form.amount}
               onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
             />
           </div>
           <div className="field-block">
-            <label className="field-label">Valor pago</label>
+            <label className="field-label">Data e hora do lancamento</label>
             <AppInput
-              type="number"
-              value={form.amountPaid}
-              onChange={(event) => setForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
+              disabled
+              value={formatDateTime(editingEntry?.launchDate ?? new Date())}
             />
           </div>
-          <div className="field-block">
-            <label className="field-label">Vencimento</label>
-            <AppInput
-              type="date"
-              value={form.dueDate}
-              onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
-            />
-          </div>
-          <div className="field-block">
-            <label className="field-label">Data de lancamento</label>
-            <AppInput
-              type="date"
-              value={form.launchDate}
-              onChange={(event) => setForm((prev) => ({ ...prev, launchDate: event.target.value }))}
-            />
-          </div>
-          <div className="field-block">
-            <label className="field-label">Data de pagamento</label>
-            <AppInput
-              type="date"
-              value={form.paymentDate}
-              onChange={(event) => setForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
-            />
-          </div>
-
           <div className="field-block">
             <label className="field-label">Status</label>
             <DashboardFilterSelect
@@ -805,25 +808,115 @@ export function FinancialEntriesPage() {
           </div>
 
           <div className="field-block">
-            <label className="field-label">Categoria</label>
-            <DashboardFilterSelect
-              value={form.categoryId || undefined}
-              placeholder="Categoria"
-              options={categoryFormOptions}
-              onChange={(value) => setForm((prev) => ({ ...prev, categoryId: String(value) }))}
-            />
-          </div>
-
-          <div className="field-block">
             <label className="field-label">Centro de custo</label>
             <DashboardFilterSelect
               value={form.costCenterId || undefined}
               placeholder="Centro de custo"
               allowClear
               options={costCenterFormOptions}
-              onChange={(value) => setForm((prev) => ({ ...prev, costCenterId: String(value || "") }))}
+              onChange={(value) =>
+                setForm((prev) => {
+                  const nextCostCenterId = String(value || "");
+                  const categoryStillValid = categories.find(
+                    (item) => item.id === prev.categoryId && item.costCenterId === nextCostCenterId
+                  );
+
+                  return {
+                    ...prev,
+                    costCenterId: nextCostCenterId,
+                    categoryId: categoryStillValid ? prev.categoryId : ""
+                  };
+                })
+              }
             />
           </div>
+
+          <div className="field-block">
+            <label className="field-label">Categoria</label>
+            <DashboardFilterSelect
+              value={form.categoryId || undefined}
+              placeholder={form.costCenterId ? "Categoria" : "Selecione o centro de custo"}
+              options={categoryFormOptions}
+              disabled={!form.costCenterId}
+              onChange={(value) => setForm((prev) => ({ ...prev, categoryId: String(value || "") }))}
+            />
+          </div>
+
+          {!editingEntryId && (
+            <div className="field-block">
+              <label className="field-label">Numero de parcelas</label>
+              <AppInput
+                type="number"
+                min={1}
+                step="1"
+                value={form.installmentCount}
+                onChange={(event) => {
+                  const nextCount = Math.max(1, Number(event.target.value || 1));
+                  setForm((prev) => ({
+                    ...prev,
+                    installmentCount: String(nextCount),
+                    installmentDates: resizeInstallmentDates(prev.installmentDates, nextCount),
+                    dueDate: nextCount <= 1 ? prev.dueDate || todayInputDate() : ""
+                  }));
+                }}
+              />
+            </div>
+          )}
+
+          {!editingEntryId && installmentCount <= 1 && (
+            <div className="field-block">
+              <label className="field-label">Data da parcela</label>
+              <AppInput
+                type="date"
+                value={form.dueDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
+              />
+            </div>
+          )}
+
+          {editingEntryId && (
+            <>
+              <div className="field-block">
+                <label className="field-label">Parcela</label>
+                <AppInput
+                  disabled
+                  value={`${editingEntry?.installmentNumber ?? 1}/${editingEntry?.installmentCount ?? 1}`}
+                />
+              </div>
+              <div className="field-block">
+                <label className="field-label">Data da parcela</label>
+                <AppInput
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(event) => setForm((prev) => ({ ...prev, dueDate: event.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
+          {!editingEntryId && installmentCount > 1 && (
+            <div style={{ gridColumn: "1 / -1" }} className="card card-stack">
+              <h3>Datas das parcelas</h3>
+              <div className="form-grid">
+                {form.installmentDates.map((date, index) => (
+                  <div className="field-block" key={`installment-${index + 1}`}>
+                    <label className="field-label">{`Parcela ${index + 1}`}</label>
+                    <AppInput
+                      type="date"
+                      value={date}
+                      onChange={(event) =>
+                        setForm((prev) => {
+                          const nextDates = [...prev.installmentDates];
+                          nextDates[index] = event.target.value;
+                          return { ...prev, installmentDates: nextDates };
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="field-block">
             <label className="field-label">Forma de pagamento</label>
@@ -839,6 +932,26 @@ export function FinancialEntriesPage() {
                   paymentKey: String(value || "") ? prev.paymentKey : ""
                 }))
               }
+            />
+          </div>
+
+          <div className="field-block">
+            <label className="field-label">Data de pagamento</label>
+            <AppInput
+              type="date"
+              value={form.paymentDate}
+              onChange={(event) => setForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
+            />
+          </div>
+
+          <div className="field-block">
+            <label className="field-label">Valor pago</label>
+            <AppInput
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={form.amountPaid}
+              onChange={(event) => setForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
             />
           </div>
 
@@ -885,44 +998,6 @@ export function FinancialEntriesPage() {
               acceptedExtensions={[".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg"]}
             />
           </div>
-
-          <label className="permission-item" style={{ gridColumn: "1 / -1" }}>
-            <AppCheckbox
-              checked={form.isFixed}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  isFixed: event.target.checked,
-                  recurrenceCycle: event.target.checked ? prev.recurrenceCycle : "NONE",
-                  recurrenceEndDate: event.target.checked ? prev.recurrenceEndDate : ""
-                }))
-              }
-            />
-            <span>Lancamento fixo (repeticao por ciclo)</span>
-          </label>
-
-          {form.isFixed && (
-            <>
-              <div className="field-block">
-                <label className="field-label">Ciclo de recorrencia</label>
-                <DashboardFilterSelect
-                  value={form.recurrenceCycle}
-                  options={RECURRENCE_OPTIONS}
-                  onChange={(value) =>
-                    setForm((prev) => ({ ...prev, recurrenceCycle: value as FinancialRecurrenceCycle }))
-                  }
-                />
-              </div>
-              <div className="field-block">
-                <label className="field-label">Fim da recorrencia</label>
-                <AppInput
-                  type="date"
-                  value={form.recurrenceEndDate}
-                  onChange={(event) => setForm((prev) => ({ ...prev, recurrenceEndDate: event.target.value }))}
-                />
-              </div>
-            </>
-          )}
         </div>
       </AppModal>
 
@@ -965,6 +1040,8 @@ export function FinancialEntriesPage() {
             <label className="field-label">Valor pago</label>
             <AppInput
               type="number"
+              step="0.01"
+              inputMode="decimal"
               value={payForm.amountPaid}
               onChange={(event) => setPayForm((prev) => ({ ...prev, amountPaid: event.target.value }))}
             />

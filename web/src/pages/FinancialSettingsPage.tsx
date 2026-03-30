@@ -20,6 +20,8 @@ interface BaseSetting {
   id: string;
   name: string;
   description?: string | null;
+  costCenterId?: string | null;
+  costCenter?: CostCenter | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +30,7 @@ interface BaseSetting {
 interface SettingForm {
   name: string;
   description: string;
+  costCenterId: string;
   isActive: boolean;
 }
 
@@ -40,6 +43,7 @@ const KIND_LABEL: Record<SettingKind, string> = {
 const INITIAL_FORM: SettingForm = {
   name: "",
   description: "",
+  costCenterId: "",
   isActive: true
 };
 
@@ -69,6 +73,15 @@ export function FinancialSettingsPage() {
       dataIndex: "name",
       key: "name"
     },
+    ...(activeTab === "categories"
+      ? [
+          {
+            title: "Centro de custo",
+            key: "costCenter",
+            render: (_: unknown, record: BaseSetting) => record.costCenter?.name ?? "-"
+          }
+        ]
+      : []),
     {
       title: "Descricao",
       key: "description",
@@ -91,6 +104,7 @@ export function FinancialSettingsPage() {
               setForm({
                 name: record.name,
                 description: record.description ?? "",
+                costCenterId: record.costCenterId ?? "",
                 isActive: record.isActive
               });
               setModalOpen(true);
@@ -166,12 +180,18 @@ export function FinancialSettingsPage() {
       return;
     }
 
+    if (activeTab === "categories" && !form.costCenterId) {
+      notifyError("Financeiro", "Selecione o centro de custo da categoria.");
+      return;
+    }
+
     setSaving(true);
 
     try {
       const payload = {
         name: form.name.trim(),
         description: form.description,
+        costCenterId: activeTab === "categories" ? form.costCenterId || undefined : undefined,
         isActive: form.isActive
       };
 
@@ -277,16 +297,33 @@ export function FinancialSettingsPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Nome"
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Descricao"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          />
+          <div className="field-block">
+            <label className="field-label">Nome</label>
+            <AppInput
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label className="field-label">Descricao</label>
+            <AppInput
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </div>
+          {activeTab === "categories" && (
+            <div className="field-block">
+              <label className="field-label">Centro de custo</label>
+              <DashboardFilterSelect
+                value={form.costCenterId || undefined}
+                options={costCenters.map((item) => ({
+                  value: item.id,
+                  label: item.isActive ? item.name : `${item.name} (inativo)`
+                }))}
+                onChange={(value) => setForm((prev) => ({ ...prev, costCenterId: String(value || "") }))}
+              />
+            </div>
+          )}
           <label className="permission-item" style={{ gridColumn: "1 / -1" }}>
             <AppCheckbox
               checked={form.isActive}
