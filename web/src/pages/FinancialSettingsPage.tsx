@@ -149,30 +149,46 @@ export function FinancialSettingsPage() {
     }
   ];
 
-  async function loadSettings() {
+  async function loadSettings(tab: SettingKind = activeTab) {
     setLoading(true);
 
     try {
-      const [categoryResponse, costCenterResponse, paymentMethodResponse] = await Promise.all([
-        api.get<FinancialCategory[]>("/financial/settings/categories", {
-          params: { status: statusFilter }
-        }),
-        api.get<CostCenter[]>("/financial/settings/cost-centers", {
-          params: { status: statusFilter }
-        }),
-        api.get<PaymentMethod[]>("/financial/settings/payment-methods", {
-          params: { status: statusFilter }
-        })
-      ]);
+      if (tab === "categories") {
+        const [categoryResponse, costCenterResponse] = await Promise.all([
+          api.get<FinancialCategory[]>("/financial/settings/categories", {
+            params: { status: statusFilter }
+          }),
+          api.get<CostCenter[]>("/financial/settings/cost-centers", {
+            params: { status: "all", includeUsedInactive: true }
+          })
+        ]);
 
-      setCategories(categoryResponse.data);
-      setCostCenters(costCenterResponse.data);
-      setPaymentMethods(paymentMethodResponse.data);
+        setCategories(categoryResponse.data);
+        setCostCenters(costCenterResponse.data);
+      }
 
-      if (canManageCashPassword) {
+      if (tab === "cost-centers") {
+        const costCenterResponse = await api.get<CostCenter[]>("/financial/settings/cost-centers", {
+          params: { status: statusFilter }
+        });
+
+        setCostCenters(costCenterResponse.data);
+      }
+
+      if (tab === "payment-methods") {
+        const paymentMethodResponse = await api.get<PaymentMethod[]>("/financial/settings/payment-methods", {
+          params: { status: statusFilter }
+        });
+
+        setPaymentMethods(paymentMethodResponse.data);
+      }
+
+      if (tab === "cash-password" && canManageCashPassword) {
         const cashPasswordResponse = await api.get<CashPasswordSettings>("/financial/settings/cash-password");
         setCashPasswordSettings(cashPasswordResponse.data);
-      } else {
+      }
+
+      if (tab === "cash-password" && !canManageCashPassword) {
         setCashPasswordSettings(null);
       }
     } catch {
@@ -184,7 +200,7 @@ export function FinancialSettingsPage() {
 
   useEffect(() => {
     void loadSettings();
-  }, [statusFilter, canManageCashPassword]);
+  }, [activeTab, statusFilter, canManageCashPassword]);
 
   function openCreate() {
     setEditingId(null);
@@ -257,7 +273,12 @@ export function FinancialSettingsPage() {
       }
 
       setModalOpen(false);
-      await loadSettings();
+
+      try {
+        await loadSettings(activeTab);
+      } catch {
+        notifyError("Financeiro", "O item foi salvo, mas nao foi possivel recarregar a listagem.");
+      }
     } catch (error) {
       const message =
         error instanceof AxiosError
@@ -273,7 +294,7 @@ export function FinancialSettingsPage() {
     try {
       await api.delete(`/financial/settings/${activeTab}/${id}`);
       notifySuccess(`${KIND_LABEL[activeTab]} desativado`);
-      await loadSettings();
+      await loadSettings(activeTab);
     } catch (error) {
       const message =
         error instanceof AxiosError
@@ -287,7 +308,7 @@ export function FinancialSettingsPage() {
     try {
       await api.patch(`/financial/settings/${activeTab}/${id}`, { isActive: true });
       notifySuccess(`${KIND_LABEL[activeTab]} reativado`);
-      await loadSettings();
+      await loadSettings(activeTab);
     } catch (error) {
       const message =
         error instanceof AxiosError
