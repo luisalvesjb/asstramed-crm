@@ -4,6 +4,7 @@ import { permissionMiddleware } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../config/permissions";
 import * as financialEntriesController from "./financial-entries.controller";
 import { financialEntryFilesUpload } from "../../gateways/financial-entry-files.gateway";
+import { asyncHandler } from "../../utils/async-handler";
 
 export const financialEntriesRoutes = Router();
 
@@ -12,37 +13,37 @@ financialEntriesRoutes.use(authMiddleware);
 financialEntriesRoutes.get(
   "/",
   permissionMiddleware([PERMISSIONS.FINANCE_READ]),
-  financialEntriesController.listFinancialEntries
+  asyncHandler(financialEntriesController.listFinancialEntries)
 );
 financialEntriesRoutes.post(
   "/",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
-  financialEntriesController.createFinancialEntry
+  asyncHandler(financialEntriesController.createFinancialEntry)
 );
 financialEntriesRoutes.patch(
   "/:id",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
-  financialEntriesController.updateFinancialEntry
+  asyncHandler(financialEntriesController.updateFinancialEntry)
 );
 financialEntriesRoutes.patch(
   "/:id/pay",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
-  financialEntriesController.payFinancialEntry
+  asyncHandler(financialEntriesController.payFinancialEntry)
 );
 financialEntriesRoutes.delete(
   "/:id",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
-  financialEntriesController.deleteFinancialEntry
+  asyncHandler(financialEntriesController.deleteFinancialEntry)
 );
 financialEntriesRoutes.post(
   "/:id/bank-slip",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
   financialEntryFilesUpload.single("file"),
-  financialEntriesController.uploadFinancialEntryBankSlip
+  asyncHandler(financialEntriesController.uploadFinancialEntryBankSlip)
 );
 financialEntriesRoutes.post(
   "/:id/payment-receipt",
   permissionMiddleware([PERMISSIONS.FINANCE_WRITE]),
   financialEntryFilesUpload.single("file"),
-  financialEntriesController.uploadFinancialEntryPaymentReceipt
+  asyncHandler(financialEntriesController.uploadFinancialEntryPaymentReceipt)
 );
