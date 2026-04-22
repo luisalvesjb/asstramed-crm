@@ -1,5 +1,6 @@
 import { FinancialEntryStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
+import { formatDateKey } from "../../utils/date";
 import {
   ensureRecurringEntriesGenerated,
   syncOverdueStatuses as syncCalculatedFinancialStatuses
@@ -15,10 +16,6 @@ function endOfDay(date: Date): Date {
   const value = new Date(date);
   value.setHours(23, 59, 59, 999);
   return value;
-}
-
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function resolvePaidAmount(entry: { amount: Prisma.Decimal | number; amountPaid?: Prisma.Decimal | number | null }): number {
@@ -105,7 +102,7 @@ export async function dailyReport(date?: Date) {
   const pendingAmount = pending.reduce((acc, entry) => acc + Number(entry.amount), 0);
 
   return {
-    date: dateKey(target),
+    date: formatDateKey(target),
     kpis: {
       paidOut,
       dueToday: dueTodayAmount,
@@ -162,7 +159,7 @@ export async function outflowByDay(filters: {
       continue;
     }
 
-    const key = dateKey(entry.paymentDate);
+    const key = formatDateKey(entry.paymentDate);
     const current = map.get(key) ?? { date: key, total: 0, count: 0 };
     current.total += resolvePaidAmount(entry);
     current.count += 1;
@@ -171,8 +168,8 @@ export async function outflowByDay(filters: {
 
   return {
     period: {
-      startDate: dateKey(from),
-      endDate: dateKey(to)
+      startDate: formatDateKey(from),
+      endDate: formatDateKey(to)
     },
     totalOutflow: entries.reduce((acc, entry) => acc + resolvePaidAmount(entry), 0),
     totalCount: entries.length,

@@ -21,6 +21,7 @@ import {
   KpiStatCard
 } from "../ui/components";
 import { notifyError, notifySuccess } from "../ui/feedback/notifications";
+import { getTodayDateInputValue } from "../utils/date";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { useAuth } from "../context/AuthContext";
 import { PERMISSIONS } from "../constants/permissions";
@@ -80,7 +81,7 @@ const RECEIPT_CATEGORY_OPTIONS: Array<{ value: CashReceiptCategory; label: strin
 ];
 
 function todayInputDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateInputValue();
 }
 
 function statusLabel(status: string): string {

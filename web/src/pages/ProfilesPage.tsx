@@ -319,22 +319,28 @@ export function ProfilesPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Nome do perfil"
-            value={profileForm.name}
-            onChange={(event) => setProfileForm((prev) => ({ ...prev, name: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Chave (opcional)"
-            value={profileForm.key}
-            onChange={(event) => setProfileForm((prev) => ({ ...prev, key: event.target.value }))}
-            disabled={Boolean(profileForm.id && profiles.find((item) => item.id === profileForm.id)?.isSystem)}
-          />
-          <AppInput
-            placeholder="Descricao"
-            value={profileForm.description}
-            onChange={(event) => setProfileForm((prev) => ({ ...prev, description: event.target.value }))}
-          />
+          <div className="field-block">
+            <label>Nome do perfil</label>
+            <AppInput
+              value={profileForm.name}
+              onChange={(event) => setProfileForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Chave</label>
+            <AppInput
+              value={profileForm.key}
+              onChange={(event) => setProfileForm((prev) => ({ ...prev, key: event.target.value }))}
+              disabled={Boolean(profileForm.id && profiles.find((item) => item.id === profileForm.id)?.isSystem)}
+            />
+          </div>
+          <div className="field-block">
+            <label>Descricao</label>
+            <AppInput
+              value={profileForm.description}
+              onChange={(event) => setProfileForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </div>
           <label className="permission-item" style={{ gridColumn: "1 / -1" }}>
             <AppCheckbox
               checked={profileForm.isActive}

@@ -1,17 +1,22 @@
 import { FinancialEntryStatus } from "@prisma/client";
 import { z } from "zod";
+import {
+  nullableOptionalDateInputSchema,
+  optionalDateArrayInputSchema,
+  optionalDateInputSchema
+} from "../../utils/date";
 
 export const financialEntryIdParamSchema = z.object({
   id: z.string().uuid()
 });
 
 export const listFinancialEntriesSchema = z.object({
-  dueDateFrom: z.coerce.date().optional(),
-  dueDateTo: z.coerce.date().optional(),
-  paymentDateFrom: z.coerce.date().optional(),
-  paymentDateTo: z.coerce.date().optional(),
-  launchDateFrom: z.coerce.date().optional(),
-  launchDateTo: z.coerce.date().optional(),
+  dueDateFrom: optionalDateInputSchema,
+  dueDateTo: optionalDateInputSchema,
+  paymentDateFrom: optionalDateInputSchema,
+  paymentDateTo: optionalDateInputSchema,
+  launchDateFrom: optionalDateInputSchema,
+  launchDateTo: optionalDateInputSchema,
   categoryId: z.string().uuid().optional(),
   costCenterId: z.string().uuid().optional(),
   paymentMethodId: z.string().uuid().optional(),
@@ -28,10 +33,10 @@ export const createFinancialEntrySchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive(),
   amountPaid: z.coerce.number().nonnegative().optional(),
-  dueDate: z.coerce.date().optional(),
+  dueDate: optionalDateInputSchema,
   installmentCount: z.coerce.number().int().min(1).max(120).default(1),
-  installmentDates: z.array(z.coerce.date()).optional(),
-  paymentDate: z.coerce.date().optional(),
+  installmentDates: optionalDateArrayInputSchema,
+  paymentDate: optionalDateInputSchema,
   categoryId: z.string().uuid(),
   costCenterId: z.string().uuid().optional(),
   paymentMethodId: z.string().uuid().optional(),
@@ -43,8 +48,8 @@ export const updateFinancialEntrySchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive().optional(),
   amountPaid: z.coerce.number().nonnegative().nullable().optional(),
-  dueDate: z.coerce.date().optional(),
-  paymentDate: z.coerce.date().nullable().optional(),
+  dueDate: optionalDateInputSchema,
+  paymentDate: nullableOptionalDateInputSchema,
   categoryId: z.string().uuid().optional(),
   costCenterId: z.string().uuid().nullable().optional(),
   paymentMethodId: z.string().uuid().nullable().optional(),
@@ -52,7 +57,7 @@ export const updateFinancialEntrySchema = z.object({
 });
 
 export const payFinancialEntrySchema = z.object({
-  paymentDate: z.coerce.date().optional(),
+  paymentDate: optionalDateInputSchema,
   amountPaid: z.coerce.number().nonnegative().optional(),
   paymentMethodId: z.string().uuid().optional(),
   paymentKey: z.string().optional()

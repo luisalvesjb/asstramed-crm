@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import { Company } from "../types/api";
 import { AppButton, AppCheckbox, DashboardFilterSelect, InlineDateNavigator, KpiStatCard } from "../ui/components";
+import { getTodayDateInputValue } from "../utils/date";
 import { formatCurrency, formatDate } from "../utils/format";
 
 interface ActivityReportItem {
@@ -36,20 +37,13 @@ interface ContractsByDueItem {
   documentCount: number;
 }
 
-function dateDaysAgo(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
-}
-
 export function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState("");
-  const [startDate, setStartDate] = useState(dateDaysAgo(30));
-  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [taskDate, setTaskDate] = useState(getTodayDateInputValue());
   const [openOnly, setOpenOnly] = useState(false);
 
   const [activities, setActivities] = useState<ActivityReportItem[]>([]);
@@ -77,8 +71,8 @@ export function ReportsPage() {
 
     try {
       const params = {
-        startDate,
-        endDate,
+        startDate: taskDate,
+        endDate: taskDate,
         companyId: companyId || undefined,
         openOnly: openOnly || undefined
       };
@@ -114,8 +108,8 @@ export function ReportsPage() {
     try {
       const response = await api.get("/reports/activities/csv", {
         params: {
-          startDate,
-          endDate,
+          startDate: taskDate,
+          endDate: taskDate,
           companyId: companyId || undefined,
           openOnly: openOnly || undefined
         },
@@ -146,19 +140,23 @@ export function ReportsPage() {
       {error && <div className="card error-box">{error}</div>}
 
       <div className="asstramed-dashboard-filters">
-        <InlineDateNavigator label="Data inicial" value={startDate} onChange={setStartDate} />
-        <InlineDateNavigator label="Data final" value={endDate} onChange={setEndDate} />
-        <DashboardFilterSelect
-          value={companyId || undefined}
-          placeholder="Empresa: Todas"
-          allowClear
-          options={companies.map((company) => ({ value: company.id, label: company.name }))}
-          onChange={(value) => setCompanyId((value as string) || "")}
-        />
-        <label className="permission-item">
-          <AppCheckbox checked={openOnly} onChange={(event) => setOpenOnly(event.target.checked)} />
-          <span>Em aberto</span>
-        </label>
+        <InlineDateNavigator label="Data da tarefa" value={taskDate} onChange={setTaskDate} />
+        <div className="field-block">
+          <label>Empresa</label>
+          <DashboardFilterSelect
+            value={companyId || undefined}
+            allowClear
+            options={companies.map((company) => ({ value: company.id, label: company.name }))}
+            onChange={(value) => setCompanyId((value as string) || "")}
+          />
+        </div>
+        <div className="field-block">
+          <label>Filtros rapidos</label>
+          <label className="permission-item">
+            <AppCheckbox checked={openOnly} onChange={(event) => setOpenOnly(event.target.checked)} />
+            <span>Em aberto</span>
+          </label>
+        </div>
         <AppButton type="primary" onClick={() => void loadReports()}>
           Aplicar filtros
         </AppButton>
@@ -172,7 +170,7 @@ export function ReportsPage() {
           icon="check"
         />
         <KpiStatCard
-          title="Atividades no Periodo"
+          title="Atividades na Data"
           value={String(activities.length)}
           tone="neutral"
           icon="activity"
@@ -186,7 +184,7 @@ export function ReportsPage() {
       </div>
 
       <div className="card card-stack">
-        <h3>Atividades por periodo</h3>
+        <h3>Atividades da data selecionada</h3>
         <table className="table">
           <thead>
             <tr>
@@ -200,7 +198,7 @@ export function ReportsPage() {
           <tbody>
             {!loading && activities.length === 0 && (
               <tr>
-                <td colSpan={5}>Nenhum registro no periodo.</td>
+                <td colSpan={5}>Nenhum registro na data selecionada.</td>
               </tr>
             )}
             {activities.slice(0, 15).map((item) => (

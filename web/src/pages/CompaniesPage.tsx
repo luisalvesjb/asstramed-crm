@@ -128,22 +128,26 @@ export function CompaniesPage() {
       </div>
 
       <div className="asstramed-dashboard-filters">
-        <AppInput
-          placeholder="Buscar empresa..."
-          value={filters.search}
-          onChange={(event) => dispatch(setCompaniesFilters({ search: event.target.value }))}
-        />
+        <div className="field-block">
+          <label>Busca</label>
+          <AppInput
+            value={filters.search}
+            onChange={(event) => dispatch(setCompaniesFilters({ search: event.target.value }))}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={filters.status || undefined}
-          placeholder="Status: Todos"
-          allowClear
-          options={[
-            { label: "Ativa", value: "ATIVA" },
-            { label: "Inativa", value: "INATIVA" }
-          ]}
-          onChange={(value) => dispatch(setCompaniesFilters({ status: (value as string) || "" }))}
-        />
+        <div className="field-block">
+          <label>Status</label>
+          <DashboardFilterSelect
+            value={filters.status || undefined}
+            allowClear
+            options={[
+              { label: "Ativa", value: "ATIVA" },
+              { label: "Inativa", value: "INATIVA" }
+            ]}
+            onChange={(value) => dispatch(setCompaniesFilters({ status: (value as string) || "" }))}
+          />
+        </div>
 
         <div className="filters-actions">
           <AppButton type="primary" loading={loading} onClick={() => void dispatch(fetchCompanies())}>

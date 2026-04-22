@@ -52,3 +52,17 @@ valor pago
 em baixo num parcelas
 
 caixa diario desvinculado lancamentos
+
+
+--
+
+colocar labels em todos os forms
+colocar data de vecimento
+colocar no relatorio vencidas
+
+poder clicar nos kpis e ver os itens referentes as suas funcoes
+
+colocar kpi a vencer
+
+relatorio ee lancamentos filtros aparecer somente vencimento e data pagamento e adicionar placeholder todos em todos os selcts
+timezone esta errado

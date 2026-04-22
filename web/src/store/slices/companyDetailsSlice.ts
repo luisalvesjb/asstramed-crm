@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { api } from "../../services/api";
 import { Activity, ActivityStatus, ApiUser, CompanyDetails, DocumentItem, MessagePriority } from "../../types/api";
 import { resolveAssetUrl } from "../../utils/asset-url";
+import { getTodayDateInputValue } from "../../utils/date";
 
 export type CompanyDetailsTab =
   | "activities"
@@ -139,7 +140,7 @@ const initialPersonalInfoForm: PersonalInfoForm = {
 const initialState: CompanyDetailsState = {
   companyId: null,
   tab: "activities",
-  selectedDate: new Date().toISOString().slice(0, 10),
+  selectedDate: getTodayDateInputValue(),
   loading: false,
   saving: false,
   error: null,

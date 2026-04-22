@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { optionalDateInputSchema } from "../../utils/date";
 
 export const financialDailyReportSchema = z.object({
-  date: z.coerce.date().optional()
+  date: optionalDateInputSchema
 });
 
 export const financialOutflowByDaySchema = z.object({
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
+  startDate: optionalDateInputSchema,
+  endDate: optionalDateInputSchema,
   categoryId: z.string().uuid().optional(),
   costCenterId: z.string().uuid().optional(),
   paymentMethodId: z.string().uuid().optional()

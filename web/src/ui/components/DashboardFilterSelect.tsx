@@ -7,6 +7,7 @@ export function DashboardFilterSelect<ValueType = string, OptionType extends obj
   return (
     <AppSelect
       {...props}
+      placeholder={props.placeholder ?? "Todos"}
       className={`asstramed-dashboard-filter-select ${props.className ?? ""}`.trim()}
     />
   );

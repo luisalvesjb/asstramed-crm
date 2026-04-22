@@ -21,6 +21,8 @@ interface KpiStatCardProps {
   tone?: KpiTone;
   deltaTone?: KpiDeltaTone;
   icon?: KpiIcon;
+  selected?: boolean;
+  onClick?: () => void;
 }
 
 function iconNode(icon: KpiIcon): ReactNode {
@@ -53,10 +55,24 @@ export function KpiStatCard({
   deltaValue,
   tone = "neutral",
   deltaTone = "neutral",
-  icon = "activity"
+  icon = "activity",
+  selected = false,
+  onClick
 }: KpiStatCardProps) {
   return (
-    <article className={`kpi-stat-card kpi-tone-${tone}`}>
+    <article
+      className={`kpi-stat-card kpi-tone-${tone} ${selected ? "is-selected" : ""} ${onClick ? "is-clickable" : ""}`.trim()}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onClick) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
       <div className="kpi-stat-header">
         <span className="kpi-stat-title">{title}</span>
         <span className="kpi-stat-icon" aria-hidden="true">

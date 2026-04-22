@@ -10,6 +10,7 @@ import {
   PaymentMethod
 } from "../types/api";
 import {
+  AppCheckbox,
   AppButton,
   AppFileDragger,
   AppInput,
@@ -21,6 +22,7 @@ import {
   KpiStatCard
 } from "../ui/components";
 import { notifyError, notifySuccess, showConfirmDialog } from "../ui/feedback/notifications";
+import { getTodayDateInputValue, toDateInputValue } from "../utils/date";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { resolveAssetUrl } from "../utils/asset-url";
 import {
@@ -59,12 +61,11 @@ const STATUS_OPTIONS: Array<{ label: string; value: FinancialEntryStatus }> = [
 ];
 
 function todayInputDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateInputValue();
 }
 
 function toInputDate(value?: string | null): string {
-  if (!value) return "";
-  return new Date(value).toISOString().slice(0, 10);
+  return toDateInputValue(value);
 }
 
 function statusLabel(status: FinancialEntryStatus): string {
@@ -175,6 +176,7 @@ export function FinancialEntriesPage() {
   const [costCenterFilter, setCostCenterFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   const kpis = useMemo(() => {
     const paid = entries.filter((item) => item.status === "PAGO");
@@ -443,7 +445,7 @@ export function FinancialEntriesPage() {
           dueDateTo: dueDateTo || undefined,
           paymentDateFrom: paymentDateFrom || undefined,
           paymentDateTo: paymentDateTo || undefined,
-          status: statusFilter || undefined,
+          status: pendingOnly ? "PENDENTE" : statusFilter || undefined,
           categoryId: categoryFilter || undefined,
           costCenterId: costCenterFilter || undefined,
           paymentMethodId: paymentMethodFilter || undefined,
@@ -631,7 +633,7 @@ export function FinancialEntriesPage() {
       const amountPaid = parseCurrencyInput(payForm.amountPaid);
 
       await api.patch(`/financial/entries/${payingEntryId}/pay`, {
-        paymentDate: payForm.paymentDate || new Date().toISOString(),
+        paymentDate: payForm.paymentDate || getTodayDateInputValue(),
         amountPaid: amountPaid ?? undefined,
         paymentMethodId: payForm.paymentMethodId || undefined,
         paymentKey: payForm.paymentKey || undefined
@@ -684,61 +686,110 @@ export function FinancialEntriesPage() {
       </div>
 
       <div className="asstramed-dashboard-filters">
-        <AppInput type="date" value={dueDateFrom} onChange={(event) => setDueDateFrom(event.target.value)} />
-        <AppInput type="date" value={dueDateTo} onChange={(event) => setDueDateTo(event.target.value)} />
-        <AppInput type="date" value={paymentDateFrom} onChange={(event) => setPaymentDateFrom(event.target.value)} />
-        <AppInput type="date" value={paymentDateTo} onChange={(event) => setPaymentDateTo(event.target.value)} />
+        <div className="field-block">
+          <label className="field-label">Data vencimento inicial</label>
+          <AppInput type="date" value={dueDateFrom} onChange={(event) => setDueDateFrom(event.target.value)} />
+        </div>
 
-        <DashboardFilterSelect
-          value={statusFilter || undefined}
-          allowClear
-          placeholder="Status"
-          options={STATUS_OPTIONS}
-          onChange={(value) => setStatusFilter((value as FinancialEntryStatus) || "")}
-        />
+        <div className="field-block">
+          <label className="field-label">Data vencimento final</label>
+          <AppInput type="date" value={dueDateTo} onChange={(event) => setDueDateTo(event.target.value)} />
+        </div>
 
-        <DashboardFilterSelect
-          value={costCenterFilter || undefined}
-          allowClear
-          placeholder="Centro de custo"
-          options={costCenters.map((item) => ({
-            value: item.id,
-            label: item.isActive ? item.name : `${item.name} (inativo)`
-          }))}
-          onChange={(value) => {
-            const nextValue = (value as string) || "";
-            setCostCenterFilter(nextValue);
-            setCategoryFilter((current) => {
-              if (!current || !nextValue) {
-                return current;
+        <div className="field-block">
+          <label className="field-label">Data pagamento inicial</label>
+          <AppInput type="date" value={paymentDateFrom} onChange={(event) => setPaymentDateFrom(event.target.value)} />
+        </div>
+
+        <div className="field-block">
+          <label className="field-label">Data pagamento final</label>
+          <AppInput type="date" value={paymentDateTo} onChange={(event) => setPaymentDateTo(event.target.value)} />
+        </div>
+
+        <div className="field-block">
+          <label className="field-label">Status</label>
+          <DashboardFilterSelect
+            value={statusFilter || undefined}
+            allowClear
+            options={STATUS_OPTIONS}
+            onChange={(value) => {
+              const nextStatus = (value as FinancialEntryStatus) || "";
+              setStatusFilter(nextStatus);
+              if (nextStatus && nextStatus !== "PENDENTE") {
+                setPendingOnly(false);
               }
+            }}
+          />
+        </div>
 
-              const currentCategory = categories.find((item) => item.id === current);
-              return currentCategory?.costCenterId === nextValue ? current : "";
-            });
-          }}
-        />
+        <div className="field-block">
+          <label className="field-label">Centro de custo</label>
+          <DashboardFilterSelect
+            value={costCenterFilter || undefined}
+            allowClear
+            options={costCenters.map((item) => ({
+              value: item.id,
+              label: item.isActive ? item.name : `${item.name} (inativo)`
+            }))}
+            onChange={(value) => {
+              const nextValue = (value as string) || "";
+              setCostCenterFilter(nextValue);
+              setCategoryFilter((current) => {
+                if (!current || !nextValue) {
+                  return current;
+                }
 
-        <DashboardFilterSelect
-          value={categoryFilter || undefined}
-          allowClear
-          placeholder="Categoria"
-          options={categoryFilterOptions}
-          onChange={(value) => setCategoryFilter((value as string) || "")}
-        />
+                const currentCategory = categories.find((item) => item.id === current);
+                return currentCategory?.costCenterId === nextValue ? current : "";
+              });
+            }}
+          />
+        </div>
 
-        <DashboardFilterSelect
-          value={paymentMethodFilter || undefined}
-          allowClear
-          placeholder="Forma de pagamento"
-          options={paymentMethods.map((item) => ({
-            value: item.id,
-            label: item.isActive ? item.name : `${item.name} (inativa)`
-          }))}
-          onChange={(value) => setPaymentMethodFilter((value as string) || "")}
-        />
+        <div className="field-block">
+          <label className="field-label">Categoria</label>
+          <DashboardFilterSelect
+            value={categoryFilter || undefined}
+            allowClear
+            options={categoryFilterOptions}
+            onChange={(value) => setCategoryFilter((value as string) || "")}
+          />
+        </div>
 
-        <AppInput placeholder="Buscar titulo/descricao" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <div className="field-block">
+          <label className="field-label">Forma de pagamento</label>
+          <DashboardFilterSelect
+            value={paymentMethodFilter || undefined}
+            allowClear
+            options={paymentMethods.map((item) => ({
+              value: item.id,
+              label: item.isActive ? item.name : `${item.name} (inativa)`
+            }))}
+            onChange={(value) => setPaymentMethodFilter((value as string) || "")}
+          />
+        </div>
+
+        <div className="field-block">
+          <label className="field-label">Buscar</label>
+          <AppInput value={search} onChange={(event) => setSearch(event.target.value)} />
+        </div>
+
+        <div className="field-block">
+          <label className="field-label">Filtros rapidos</label>
+          <label className="permission-item">
+            <AppCheckbox
+              checked={pendingOnly}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setPendingOnly(checked);
+                if (checked) {
+                  setStatusFilter("");
+                }
+              }}
+            />
+            <span>A vencer</span>
+          </label>
+        </div>
 
         <div className="filters-actions">
           <AppButton type="primary" onClick={() => void loadEntries()}>
@@ -755,6 +806,7 @@ export function FinancialEntriesPage() {
               setCostCenterFilter("");
               setPaymentMethodFilter("");
               setSearch("");
+              setPendingOnly(false);
               void loadEntries();
             }}
           >

@@ -9,6 +9,7 @@ import {
   DashboardResponse,
   MessagePriority
 } from "../../types/api";
+import { getTodayDateInputValue } from "../../utils/date";
 import type { RootState } from "../index";
 
 interface DashboardFilters {
@@ -61,7 +62,7 @@ interface CreateTaskInput {
 }
 
 function todayAsInputDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateInputValue();
 }
 
 function stripHtml(input: string): string {

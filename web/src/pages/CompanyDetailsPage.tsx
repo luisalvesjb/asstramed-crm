@@ -590,26 +590,34 @@ export function CompanyDetailsPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Nome"
-            value={contactForm.name}
-            onChange={(event) => dispatch(setContactForm({ name: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Cargo"
-            value={contactForm.role}
-            onChange={(event) => dispatch(setContactForm({ role: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Telefone"
-            value={contactForm.phone}
-            onChange={(event) => dispatch(setContactForm({ phone: event.target.value }))}
-          />
-          <AppInput
-            placeholder="E-mail"
-            value={contactForm.email}
-            onChange={(event) => dispatch(setContactForm({ email: event.target.value }))}
-          />
+          <div className="field-block">
+            <label>Nome</label>
+            <AppInput
+              value={contactForm.name}
+              onChange={(event) => dispatch(setContactForm({ name: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Cargo</label>
+            <AppInput
+              value={contactForm.role}
+              onChange={(event) => dispatch(setContactForm({ role: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Telefone</label>
+            <AppInput
+              value={contactForm.phone}
+              onChange={(event) => dispatch(setContactForm({ phone: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>E-mail</label>
+            <AppInput
+              value={contactForm.email}
+              onChange={(event) => dispatch(setContactForm({ email: event.target.value }))}
+            />
+          </div>
         </div>
       </AppModal>
 
@@ -637,42 +645,56 @@ export function CompanyDetailsPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Rua"
-            value={addressForm.street}
-            onChange={(event) => dispatch(setAddressForm({ street: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Numero"
-            value={addressForm.number}
-            onChange={(event) => dispatch(setAddressForm({ number: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Complemento"
-            value={addressForm.complement}
-            onChange={(event) => dispatch(setAddressForm({ complement: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Bairro"
-            value={addressForm.district}
-            onChange={(event) => dispatch(setAddressForm({ district: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Cidade"
-            value={addressForm.city}
-            onChange={(event) => dispatch(setAddressForm({ city: event.target.value }))}
-          />
-          <AppInput
-            placeholder="UF"
-            maxLength={2}
-            value={addressForm.state}
-            onChange={(event) => dispatch(setAddressForm({ state: event.target.value.toUpperCase() }))}
-          />
-          <AppInput
-            placeholder="CEP"
-            value={addressForm.zipCode}
-            onChange={(event) => dispatch(setAddressForm({ zipCode: event.target.value }))}
-          />
+          <div className="field-block">
+            <label>Rua</label>
+            <AppInput
+              value={addressForm.street}
+              onChange={(event) => dispatch(setAddressForm({ street: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Numero</label>
+            <AppInput
+              value={addressForm.number}
+              onChange={(event) => dispatch(setAddressForm({ number: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Complemento</label>
+            <AppInput
+              value={addressForm.complement}
+              onChange={(event) => dispatch(setAddressForm({ complement: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Bairro</label>
+            <AppInput
+              value={addressForm.district}
+              onChange={(event) => dispatch(setAddressForm({ district: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Cidade</label>
+            <AppInput
+              value={addressForm.city}
+              onChange={(event) => dispatch(setAddressForm({ city: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>UF</label>
+            <AppInput
+              maxLength={2}
+              value={addressForm.state}
+              onChange={(event) => dispatch(setAddressForm({ state: event.target.value.toUpperCase() }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>CEP</label>
+            <AppInput
+              value={addressForm.zipCode}
+              onChange={(event) => dispatch(setAddressForm({ zipCode: event.target.value }))}
+            />
+          </div>
         </div>
       </AppModal>
 
@@ -700,17 +722,22 @@ export function CompanyDetailsPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Titulo"
-            value={documentTitle}
-            onChange={(event) => dispatch(setDocumentTitle(event.target.value))}
-          />
-          <AppInput
-            placeholder="Descricao"
-            value={documentDescription}
-            onChange={(event) => dispatch(setDocumentDescription(event.target.value))}
-          />
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div className="field-block">
+            <label>Titulo</label>
+            <AppInput
+              value={documentTitle}
+              onChange={(event) => dispatch(setDocumentTitle(event.target.value))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Descricao</label>
+            <AppInput
+              value={documentDescription}
+              onChange={(event) => dispatch(setDocumentDescription(event.target.value))}
+            />
+          </div>
+          <div className="field-block" style={{ gridColumn: "1 / -1" }}>
+            <label>Arquivo</label>
             <AppFileDragger
               value={documentFile}
               onChange={(file) => dispatch(setDocumentFile(file))}
@@ -748,37 +775,47 @@ export function CompanyDetailsPage() {
       >
         <div className="form-grid">
           {canReadContractValues && (
-            <AppInput
-              placeholder="Valor"
-              value={contractForm.value}
-              onChange={(event) => dispatch(setContractForm({ value: event.target.value }))}
-            />
+            <div className="field-block">
+              <label>Valor</label>
+              <AppInput
+                value={contractForm.value}
+                onChange={(event) => dispatch(setContractForm({ value: event.target.value }))}
+              />
+            </div>
           )}
-          <AppInput
-            placeholder="Ciclo de pagamento"
-            value={contractForm.billingCycle}
-            onChange={(event) => dispatch(setContractForm({ billingCycle: event.target.value }))}
-          />
-          <AppInput
-            type="number"
-            min={1}
-            max={31}
-            placeholder="Dia de vencimento"
-            value={contractForm.dueDay}
-            onChange={(event) => dispatch(setContractForm({ dueDay: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Observacoes"
-            value={contractForm.notes}
-            onChange={(event) => dispatch(setContractForm({ notes: event.target.value }))}
-          />
-          <DashboardFilterSelect
-            mode="multiple"
-            value={contractForm.documentIds}
-            placeholder="Documentos vinculados"
-            options={documents.map((document) => ({ value: document.id, label: document.title }))}
-            onChange={(value) => dispatch(setContractForm({ documentIds: value as string[] }))}
-          />
+          <div className="field-block">
+            <label>Ciclo de pagamento</label>
+            <AppInput
+              value={contractForm.billingCycle}
+              onChange={(event) => dispatch(setContractForm({ billingCycle: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Dia de vencimento</label>
+            <AppInput
+              type="number"
+              min={1}
+              max={31}
+              value={contractForm.dueDay}
+              onChange={(event) => dispatch(setContractForm({ dueDay: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Observacoes</label>
+            <AppInput
+              value={contractForm.notes}
+              onChange={(event) => dispatch(setContractForm({ notes: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Documentos vinculados</label>
+            <DashboardFilterSelect
+              mode="multiple"
+              value={contractForm.documentIds}
+              options={documents.map((document) => ({ value: document.id, label: document.title }))}
+              onChange={(value) => dispatch(setContractForm({ documentIds: value as string[] }))}
+            />
+          </div>
         </div>
       </AppModal>
 
@@ -813,35 +850,44 @@ export function CompanyDetailsPage() {
         ]}
       >
         <div className="form-grid">
-          <AppInput
-            placeholder="Documento"
-            value={personalInfoForm.personalDocument}
-            onChange={(event) => dispatch(setPersonalInfoForm({ personalDocument: event.target.value }))}
-          />
-          <AppInput
-            placeholder="E-mail"
-            value={personalInfoForm.personalEmail}
-            onChange={(event) => dispatch(setPersonalInfoForm({ personalEmail: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Telefone"
-            value={personalInfoForm.personalPhone}
-            onChange={(event) => dispatch(setPersonalInfoForm({ personalPhone: event.target.value }))}
-          />
-          <AppInput
-            placeholder="Responsavel"
-            value={personalInfoForm.personalResponsible}
-            onChange={(event) => dispatch(setPersonalInfoForm({ personalResponsible: event.target.value }))}
-          />
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div className="field-block">
+            <label>Documento</label>
             <AppInput
-              placeholder="Observacoes"
+              value={personalInfoForm.personalDocument}
+              onChange={(event) => dispatch(setPersonalInfoForm({ personalDocument: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>E-mail</label>
+            <AppInput
+              value={personalInfoForm.personalEmail}
+              onChange={(event) => dispatch(setPersonalInfoForm({ personalEmail: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Telefone</label>
+            <AppInput
+              value={personalInfoForm.personalPhone}
+              onChange={(event) => dispatch(setPersonalInfoForm({ personalPhone: event.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label>Responsavel</label>
+            <AppInput
+              value={personalInfoForm.personalResponsible}
+              onChange={(event) => dispatch(setPersonalInfoForm({ personalResponsible: event.target.value }))}
+            />
+          </div>
+          <div className="field-block" style={{ gridColumn: "1 / -1" }}>
+            <label>Observacoes</label>
+            <AppInput
               value={personalInfoForm.personalNotes}
               onChange={(event) => dispatch(setPersonalInfoForm({ personalNotes: event.target.value }))}
             />
           </div>
 
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div className="field-block" style={{ gridColumn: "1 / -1" }}>
+            <label>Logo</label>
             <AppFileDragger
               value={personalInfoForm.logoFile}
               onChange={(file) => {

@@ -1,11 +1,13 @@
+import { parseDateForDisplay } from "./date";
+
 export function formatDate(value?: string | Date | null): string {
   if (!value) {
     return "-";
   }
 
-  const date = value instanceof Date ? value : new Date(value);
+  const date = parseDateForDisplay(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!date) {
     return "-";
   }
 
