@@ -33,3 +33,12 @@ export async function activitiesCsv(req: Request, res: Response): Promise<void> 
   res.setHeader("Content-Disposition", "attachment; filename=relatorio-atividades.csv");
   res.status(200).send(csv);
 }
+
+export async function activitiesPdf(req: Request, res: Response): Promise<void> {
+  const filters = reportFiltersSchema.parse(req.query);
+  const pdf = await reportsService.activitiesPdf(filters);
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "attachment; filename=relatorio-atividades.pdf");
+  res.status(200).send(pdf);
+}

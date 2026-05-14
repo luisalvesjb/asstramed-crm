@@ -1,6 +1,18 @@
 import { ActivityStatus } from "@prisma/client";
+import fs from "fs";
+import path from "path";
+import PDFDocument from "pdfkit";
 import { prisma } from "../../db/prisma";
 import { toCsv } from "../../utils/csv";
+
+interface ReportFilters {
+  startDate?: Date;
+  endDate?: Date;
+  companyId?: string;
+  responsibleId?: string;
+  status?: ActivityStatus;
+  openOnly?: boolean;
+}
 
 function buildDateFilter(startDate?: Date, endDate?: Date) {
   if (!startDate && !endDate) return undefined;
@@ -17,14 +29,7 @@ function buildDateFilter(startDate?: Date, endDate?: Date) {
   };
 }
 
-export async function activityReport(filters: {
-  startDate?: Date;
-  endDate?: Date;
-  companyId?: string;
-  responsibleId?: string;
-  status?: ActivityStatus;
-  openOnly?: boolean;
-}) {
+export async function activityReport(filters: ReportFilters) {
   const statusFilter = filters.openOnly
     ? {
         in: [ActivityStatus.PENDENTE, ActivityStatus.EM_EXECUCAO]
@@ -215,14 +220,7 @@ export async function contractsByDueReport() {
   }));
 }
 
-export async function activitiesCsv(filters: {
-  startDate?: Date;
-  endDate?: Date;
-  companyId?: string;
-  responsibleId?: string;
-  status?: ActivityStatus;
-  openOnly?: boolean;
-}) {
+export async function activitiesCsv(filters: ReportFilters) {
   const rows = await activityReport(filters);
 
   return toCsv(
@@ -240,4 +238,227 @@ export async function activitiesCsv(filters: {
       completedAt: activity.completedAt?.toISOString() ?? ""
     }))
   );
+}
+
+function resolveLogoPath(): string | undefined {
+  const candidates = [
+    path.resolve(process.cwd(), "assets/brand/logo.png"),
+    path.resolve(process.cwd(), "../site/assets/img/logo.png")
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate));
+}
+
+function formatPdfDate(value?: Date | null): string {
+  if (!value) return "-";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo"
+  }).format(value);
+}
+
+function formatPdfDateTime(value?: Date | null): string {
+  if (!value) return "-";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo"
+  }).format(value);
+}
+
+function formatReportPeriod(filters: ReportFilters): string {
+  if (filters.startDate && filters.endDate) {
+    const start = formatPdfDate(filters.startDate);
+    const end = formatPdfDate(filters.endDate);
+    return start === end ? start : `${start} a ${end}`;
+  }
+
+  if (filters.startDate) return `A partir de ${formatPdfDate(filters.startDate)}`;
+  if (filters.endDate) return `Ate ${formatPdfDate(filters.endDate)}`;
+  return "Todos os registros";
+}
+
+function statusLabel(status: ActivityStatus): string {
+  switch (status) {
+    case ActivityStatus.CONCLUIDA:
+      return "Concluida";
+    case ActivityStatus.EM_EXECUCAO:
+      return "Em execucao";
+    case ActivityStatus.CANCELADA:
+      return "Cancelada";
+    case ActivityStatus.PENDENTE:
+    default:
+      return "Pendente";
+  }
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function collectPdf(doc: PDFKit.PDFDocument): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+
+    doc.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+}
+
+function ensurePageSpace(doc: PDFKit.PDFDocument, y: number, neededHeight: number): number {
+  const bottom = doc.page.height - doc.page.margins.bottom;
+
+  if (y + neededHeight <= bottom) {
+    return y;
+  }
+
+  doc.addPage();
+  return doc.page.margins.top;
+}
+
+function drawTableHeader(doc: PDFKit.PDFDocument, x: number, y: number, widths: number[]): number {
+  const labels = ["Empresa", "Atividade", "Status", "Responsavel", "Cadastrado por", "Tags", "Criada em"];
+  let cursorX = x;
+
+  doc.rect(x, y, widths.reduce((acc, width) => acc + width, 0), 22).fill("#eef3ff");
+  doc.fillColor("#1f2d44").font("Helvetica-Bold").fontSize(8);
+
+  labels.forEach((label, index) => {
+    doc.text(label, cursorX + 5, y + 7, { width: widths[index] - 10 });
+    cursorX += widths[index];
+  });
+
+  return y + 22;
+}
+
+function drawFooter(doc: PDFKit.PDFDocument): void {
+  const range = doc.bufferedPageRange();
+
+  for (let index = range.start; index < range.start + range.count; index += 1) {
+    doc.switchToPage(index);
+    doc
+      .font("Helvetica")
+      .fontSize(8)
+      .fillColor("#7a8496")
+      .text(
+        `Pagina ${index + 1} de ${range.count}`,
+        doc.page.margins.left,
+        doc.page.height - 28,
+        { align: "right", width: doc.page.width - doc.page.margins.left - doc.page.margins.right }
+      );
+  }
+}
+
+export async function activitiesPdf(filters: ReportFilters): Promise<Buffer> {
+  const [rows, pendingByCompany, company] = await Promise.all([
+    activityReport(filters),
+    pendingByCompanyReport({
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      companyId: filters.companyId
+    }),
+    filters.companyId
+      ? prisma.company.findUnique({ where: { id: filters.companyId }, select: { name: true } })
+      : Promise.resolve(null)
+  ]);
+
+  const totalResolved = rows.filter((activity) => activity.status === ActivityStatus.CONCLUIDA).length;
+  const period = formatReportPeriod(filters);
+  const logoPath = resolveLogoPath();
+  const doc = new PDFDocument({
+    size: "A4",
+    layout: "landscape",
+    margin: 36,
+    bufferPages: true,
+    info: {
+      Title: "Relatorio de Atividades",
+      Author: "Asstramed CRM"
+    }
+  });
+  const pdfPromise = collectPdf(doc);
+
+  if (logoPath) {
+    doc.image(logoPath, 36, 28, { fit: [128, 42] });
+  }
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(18)
+    .fillColor("#17243a")
+    .text("Relatorio de Atividades", 184, 32);
+  doc.font("Helvetica").fontSize(10).fillColor("#647086").text(`Periodo: ${period}`, 184, 57);
+
+  const filtersText = [
+    `Empresa: ${company?.name ?? "Todas"}`,
+    `Status: ${filters.openOnly ? "Em aberto" : "Todos"}`
+  ].join(" | ");
+  doc.text(`Filtros: ${filtersText}`, 184, 73);
+
+  doc.moveTo(36, 100).lineTo(doc.page.width - 36, 100).strokeColor("#dbe3f2").stroke();
+
+  const kpis = [
+    { label: "Resolvidas", value: String(totalResolved) },
+    { label: "Atividades", value: String(rows.length) },
+    { label: "Pendencias por empresa", value: String(pendingByCompany.length) }
+  ];
+  const kpiY = 118;
+  const kpiWidth = 160;
+
+  kpis.forEach((kpi, index) => {
+    const x = 36 + index * (kpiWidth + 12);
+    doc.roundedRect(x, kpiY, kpiWidth, 54, 6).fillAndStroke("#f6f8ff", "#dfe6f4");
+    doc.font("Helvetica").fontSize(9).fillColor("#6b7588").text(kpi.label, x + 12, kpiY + 10);
+    doc.font("Helvetica-Bold").fontSize(20).fillColor("#17243a").text(kpi.value, x + 12, kpiY + 27);
+  });
+
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#17243a").text("Listagem dos itens", 36, 194);
+
+  const widths = [105, 188, 72, 95, 95, 92, 82];
+  const tableX = 36;
+  let y = drawTableHeader(doc, tableX, 216, widths);
+
+  if (rows.length === 0) {
+    doc.font("Helvetica").fontSize(10).fillColor("#647086").text("Nenhum registro encontrado para o filtro.", tableX, y + 16);
+  }
+
+  rows.forEach((activity, index) => {
+    y = ensurePageSpace(doc, y, 26);
+
+    if (y === doc.page.margins.top) {
+      y = drawTableHeader(doc, tableX, y, widths);
+    }
+
+    const rowColor = index % 2 === 0 ? "#ffffff" : "#f8faff";
+    doc.rect(tableX, y, widths.reduce((acc, width) => acc + width, 0), 26).fill(rowColor);
+
+    const values = [
+      activity.company.name,
+      activity.title,
+      statusLabel(activity.status),
+      activity.assignedTo.name,
+      activity.createdBy.name,
+      activity.tags.map((item) => item.tag.key).join(", ") || "-",
+      formatPdfDateTime(activity.createdAt)
+    ];
+
+    let cursorX = tableX;
+    doc.font("Helvetica").fontSize(8).fillColor("#25324a");
+    values.forEach((value, valueIndex) => {
+      doc.text(truncate(value, valueIndex === 1 ? 42 : 24), cursorX + 5, y + 8, {
+        width: widths[valueIndex] - 10,
+        lineBreak: false
+      });
+      cursorX += widths[valueIndex];
+    });
+
+    y += 26;
+  });
+
+  drawFooter(doc);
+  doc.end();
+
+  return pdfPromise;
 }

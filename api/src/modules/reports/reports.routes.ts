@@ -12,6 +12,7 @@ reportsRoutes.use(permissionMiddleware([PERMISSIONS.REPORTS_READ]));
 
 reportsRoutes.get("/activities", asyncHandler(reportsController.activities));
 reportsRoutes.get("/activities/csv", asyncHandler(reportsController.activitiesCsv));
+reportsRoutes.get("/activities/pdf", asyncHandler(reportsController.activitiesPdf));
 reportsRoutes.get("/productivity", asyncHandler(reportsController.productivity));
 reportsRoutes.get("/pending-by-company", asyncHandler(reportsController.pendingByCompany));
 reportsRoutes.get("/contracts-by-due", asyncHandler(reportsController.contractsByDue));

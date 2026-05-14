@@ -128,13 +128,42 @@ export function ReportsPage() {
     }
   }
 
+  async function downloadActivitiesPdf() {
+    try {
+      const response = await api.get("/reports/activities/pdf", {
+        params: {
+          startDate: taskDate,
+          endDate: taskDate,
+          companyId: companyId || undefined,
+          openOnly: openOnly || undefined
+        },
+        responseType: "blob"
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "relatorio-atividades.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Nao foi possivel exportar PDF.");
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>Relatorios</h1>
-        <AppButton type="primary" onClick={() => void downloadActivitiesCsv()}>
-          Exportar CSV
-        </AppButton>
+        <div className="filters-actions">
+          <AppButton onClick={() => void downloadActivitiesCsv()}>
+            Exportar CSV
+          </AppButton>
+          <AppButton type="primary" onClick={() => void downloadActivitiesPdf()}>
+            Exportar PDF
+          </AppButton>
+        </div>
       </div>
 
       {error && <div className="card error-box">{error}</div>}
