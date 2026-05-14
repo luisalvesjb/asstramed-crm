@@ -244,6 +244,38 @@ export function FinancialReportsPage() {
     }
   }
 
+  async function downloadFinancialPdf() {
+    try {
+      const response = await api.get("/financial/reports/entries/pdf", {
+        params: {
+          dueDateFrom: dueDateFrom || undefined,
+          dueDateTo: dueDateTo || undefined,
+          paymentDateFrom: paymentDateFrom || undefined,
+          paymentDateTo: paymentDateTo || undefined,
+          categoryId: categoryId || undefined,
+          costCenterId: costCenterId || undefined,
+          paymentMethodId: paymentMethodId || undefined,
+          status: pendingOnly ? "PENDENTE" : undefined
+        },
+        responseType: "blob"
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "relatorio-financeiro.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.message as string | undefined)
+          : "Nao foi possivel exportar PDF financeiro.";
+      notifyError("Financeiro", message ?? "Nao foi possivel exportar PDF financeiro.");
+    }
+  }
+
   useEffect(() => {
     void (async () => {
       try {
@@ -266,6 +298,9 @@ export function FinancialReportsPage() {
     <div className="page">
       <div className="page-header">
         <h1>Relatorios Financeiros</h1>
+        <AppButton type="primary" onClick={() => void downloadFinancialPdf()}>
+          Exportar PDF
+        </AppButton>
       </div>
 
       <div className="asstramed-dashboard-filters">

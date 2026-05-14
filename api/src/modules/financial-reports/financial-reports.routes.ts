@@ -12,3 +12,4 @@ financialReportsRoutes.use(permissionMiddleware([PERMISSIONS.FINANCE_REPORTS]));
 
 financialReportsRoutes.get("/daily", asyncHandler(financialReportsController.dailyReport));
 financialReportsRoutes.get("/outflow-by-day", asyncHandler(financialReportsController.outflowByDay));
+financialReportsRoutes.get("/entries/pdf", asyncHandler(financialReportsController.entriesPdf));
